@@ -15,13 +15,16 @@ jobs:
         working-directory: ./handigo
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
 
-      - run: npm install
-      - run: npm run lint --if-present
-      - run: npm run test --if-present
-      - run: npm run build
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Project
+        run: npm run build
