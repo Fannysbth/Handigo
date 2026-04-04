@@ -14,7 +14,7 @@ const Cta = () => {
         </h2>
 
         <button
-          className="bg-blue-500 text-white px-8 py-4 rounded-full font-bold hover:bg-blue-600 active:scale-95 transition-all"
+          className="bg-primary-blue text-white px-8 py-4 rounded-full font-bold hover:bg-primary-hover active:scale-95 transition-all"
           onClick={() => navigate(user ? "/dashboard" : "/register")}
         >
           {user ? "Lanjutkan Belajar" : "Daftar Sekarang — Gratis"}

@@ -84,7 +84,7 @@ const SettingsPage = () => {
         <button 
           onClick={handleSave} 
           disabled={isSubmitting}
-          className="w-full bg-blue-500 text-white py-3 rounded-full mt-8 hover:bg-blue-600 active:scale-95 transition-all duration-200 disabled:opacity-50 font-semibold"
+          className="w-full bg-primary-blue text-white py-3 rounded-full mt-8 hover:bg-primary-hover active:scale-95 transition-all duration-200 disabled:opacity-50 font-semibold"
         >
           {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
         </button>

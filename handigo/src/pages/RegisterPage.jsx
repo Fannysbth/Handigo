@@ -42,13 +42,13 @@ const RegisterPage = () => {
       <Container className="flex-1 flex items-center justify-center h-full">
       
       {/* CARD */}
-      <div className="w-full max-w-md bg-blue-100 rounded-3xl shadow-lg p-8">
+      <div className="w-full max-w-md bg-light-blue rounded-3xl shadow-lg p-8">
         
         {/* TITLE */}
-        <h1 className="text-3xl font-bold text-center text-blue-900 mb-2">
+        <h1 className="text-3xl font-bold text-center text-primary-blue mb-2">
           Buat Akun Baru
         </h1>
-        <p className="text-center text-blue-800 text-sm mb-6">
+        <p className="text-center text-primary-blue opacity-80 text-sm mb-6">
           Bergabung dan mulai belajar bahasa isyarat hari ini
         </p>
 
@@ -57,39 +57,39 @@ const RegisterPage = () => {
           
           {/* NAMA */}
           <div>
-            <label className="text-xs text-blue-900">Nama Lengkap</label>
+            <label className="text-xs text-primary-blue">Nama Lengkap</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Masukkan nama lengkap"
-              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue"
               required
             />
           </div>
 
           {/* EMAIL */}
           <div>
-            <label className="text-xs text-blue-900">Email</label>
+            <label className="text-xs text-primary-blue">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contoh@email.com"
-              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-300"
+              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue"
               required
             />
           </div>
 
           {/* PASSWORD */}
           <div className="relative">
-            <label className="text-xs text-blue-900">Password</label>
+            <label className="text-xs text-primary-blue">Password</label>
             <input
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Masukkan password"
-              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue pr-10"
               required
             />
             <button
@@ -103,13 +103,13 @@ const RegisterPage = () => {
 
           {/* KONFIRM PASSWORD */}
           <div className="relative">
-            <label className="text-xs text-blue-900">Konfirmasi Password</label>
+            <label className="text-xs text-primary-blue">Konfirmasi Password</label>
             <input
               type={showConfirm ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Ulangi password"
-              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-300 pr-10"
+              className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue pr-10"
               required
             />
             <button
@@ -125,9 +125,9 @@ const RegisterPage = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="mt-2 bg-dark-gray text-white py-2 rounded-full font-semibold hover:opacity-90 hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
+            className="mt-2 bg-primary-blue text-white py-2 rounded-full font-semibold hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
           >
-            {isSubmitting ? 'Loading...' : 'Daftar'}
+            {isSubmitting ? 'Loading...' : 'Daftar Sekarang'}
           </button>
 
           {/* DIVIDER */}
@@ -140,7 +140,7 @@ const RegisterPage = () => {
           {/* LOGIN */}
           <Link
             to="/login"
-            className="bg-dark-gray text-white text-center py-2 rounded-full font-semibold hover:opacity-90 hover:scale-105 active:scale-95 transition-transform block"
+            className="bg-primary-blue text-white text-center py-2 rounded-full font-semibold hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all block"
           >
             Sudah punya akun? Masuk
           </Link>
@@ -148,7 +148,7 @@ const RegisterPage = () => {
           {/* GOOGLE */}
           <button
             type="button"
-            className="bg-dark-gray text-white py-2 rounded-full flex items-center justify-center gap-2 hover:opacity-90 hover:scale-105 active:scale-95 transition-transform"
+            className="bg-primary-blue text-white py-2 rounded-full flex items-center justify-center gap-2 hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all"
           >
             <span className="text-lg">G</span> Google
           </button>

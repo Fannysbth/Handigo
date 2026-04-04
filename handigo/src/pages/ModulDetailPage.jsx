@@ -54,7 +54,7 @@ const ModulDetailPage = () => {
           <h3 className="font-semibold mb-3">Progres Modul</h3>
 
           <div className="w-full h-3 bg-gray-200 rounded-full">
-            <div className="w-[35%] h-3 bg-blue-500 rounded-full"></div>
+            <div className="w-[35%] h-3 bg-primary-blue rounded-full"></div>
           </div>
 
           <p className="text-xs text-gray-600 mt-2">
@@ -112,7 +112,7 @@ const ModulDetailPage = () => {
           <button 
             onClick={() => user && navigate(`/modul/${id || 'dasar'}/latihan`)} 
             disabled={!user}
-            className="flex items-center gap-2 bg-blue-500 text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-primary-blue text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {!user && <Lock size={16} />}
             {user ? 'Lanjutkan Latihan' : 'Login untuk memulai latihan'}
@@ -186,14 +186,14 @@ const ExerciseCard = ({ index, title, status, score, moduleId, user }) => {
             {isDone && (
               <span className="text-sm font-medium text-gray-600 flex items-center gap-3">
                 <span className="hidden xs:inline">Skor {score}</span>
-                <button onClick={handleAction} disabled={!user} className="bg-white border text-blue-500 border-blue-500 px-3 py-1 rounded-full text-xs font-semibold hover:bg-blue-50 transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+                <button onClick={handleAction} disabled={!user} className="bg-white border text-primary-blue border-primary-blue px-3 py-1 rounded-full text-xs font-semibold hover:bg-light-blue transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
                   Ulang
                 </button>
               </span>
             )}
 
             {isProgress && (
-              <button onClick={handleAction} disabled={!user} className="bg-blue-500 text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+              <button onClick={handleAction} disabled={!user} className="bg-primary-blue text-white px-4 py-2 rounded-full text-xs font-semibold hover:bg-primary-hover hover:scale-[1.02] active:scale-[0.98] transition whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
                 Lanjutkan
               </button>
             )}
