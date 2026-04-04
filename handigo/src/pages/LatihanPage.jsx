@@ -83,7 +83,7 @@ const LatihanPage = () => {
 
         {/* progress */}
         <div className="w-full h-3 bg-gray-200 rounded-full">
-          <div className="w-[35%] h-3 bg-blue-500 rounded-full"></div>
+          <div className="w-[35%] h-3 bg-primary-blue rounded-full"></div>
         </div>
 
         <p className="text-xs text-gray-600 mt-2">35%</p>
@@ -92,11 +92,11 @@ const LatihanPage = () => {
       {/* ACTION */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
 
-        <button onClick={() => window.location.reload()} className="bg-white border border-blue-500 text-blue-500 px-6 py-3 rounded-full text-sm font-semibold hover:bg-blue-50 active:scale-95 transition-all">
+        <button onClick={() => window.location.reload()} className="bg-white border border-primary-blue text-primary-blue px-6 py-3 rounded-full text-sm font-semibold hover:bg-light-blue active:scale-95 transition-all">
           Coba Lagi
         </button>
 
-        <button onClick={() => navigate(`/modul/${id || 'dasar'}/hasil`)} className="bg-blue-500 text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-blue-600 active:scale-95 transition-all">
+        <button onClick={() => navigate(`/modul/${id || 'dasar'}/hasil`)} className="bg-primary-blue text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all">
           Selanjutnya
         </button>
 

@@ -2,6 +2,8 @@
 
 @theme {
   --font-sans: "Inter", sans-serif;
+  --color-primary-blue: #202020;
+  --color-primary-hover: #1c3957;
 }
 
 html {
@@ -15,12 +17,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 
-  Custom colors specifically requested by user's raw HTML template 
-  (Overriding any previous theme constraints to match HTML exactly)
-*/
 @layer utilities {
-  .text-primary-blue { color: #2A527A; }
   .bg-light-blue { background-color: #E6F0FF; }
   .bg-dark-gray { background-color: #222222; }
 }

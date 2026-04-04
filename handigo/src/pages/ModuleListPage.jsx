@@ -170,7 +170,7 @@ const ModuleCard = ({
       <div className={globallyLocked ? 'opacity-50' : ''}>
         <div className="w-full h-2 bg-gray-200 rounded-full">
           <div
-            className="h-2 bg-blue-500 rounded-full"
+            className="h-2 bg-primary-blue rounded-full"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -191,7 +191,7 @@ const ModuleCard = ({
             <Lock size={14} /> Selesaikan modul dasar
           </button>
         ) : (
-          <button onClick={() => navigate(`/modul/${id}`)} className="w-full bg-blue-500 text-white text-sm py-2 rounded-full hover:bg-blue-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm font-semibold">
+          <button onClick={() => navigate(`/modul/${id}`)} className="w-full bg-primary-blue text-white text-sm py-2 rounded-full hover:bg-primary-hover hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm font-semibold">
             {progress > 0 ? "Lanjutkan" : "Mulai"}
           </button>
         )}

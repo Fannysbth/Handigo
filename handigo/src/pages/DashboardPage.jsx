@@ -40,7 +40,7 @@ const DashboardPage = () => {
             </h3>
 
             <div className="w-full max-w-[250px] h-2 bg-gray-200 rounded-full mt-2">
-              <div className="w-[35%] h-2 bg-blue-500 rounded-full"></div>
+              <div className="w-[35%] h-2 bg-primary-blue rounded-full"></div>
             </div>
 
             <p className="text-xs text-gray-600 mt-1">
@@ -49,7 +49,7 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <button onClick={() => navigate('/modul/dasar')} className="bg-blue-500 text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-blue-600 active:scale-95 transition-all w-full sm:w-auto shrink-0 md:whitespace-nowrap">
+        <button onClick={() => navigate('/modul/dasar')} className="bg-primary-blue text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all w-full sm:w-auto shrink-0 md:whitespace-nowrap">
           Lanjut
         </button>
       </div>
@@ -65,7 +65,7 @@ const DashboardPage = () => {
             {[60, 80, 40, 50, 65, 30, 90].map((val, i) => (
               <div key={i} className="flex flex-col items-center justify-end h-full gap-2 w-full">
                 <div
-                  className="bg-blue-600 w-full max-w-[32px] rounded-t-md transition-all duration-500"
+                  className="bg-primary-blue w-full max-w-[32px] rounded-t-md transition-all duration-500"
                   style={{ height: `${val}%` }}
                 />
                 <span className="text-xs text-gray-700 font-medium">
@@ -100,7 +100,7 @@ const DashboardPage = () => {
                   <td className="py-4 px-6 whitespace-nowrap">1/11/2022</td>
                   <td className="py-4 px-6 whitespace-nowrap">Alfabet Dasar</td>
                   <td className="py-4 px-6 whitespace-nowrap">Huruf A,B,C</td>
-                  <td className="py-4 px-6 whitespace-nowrap font-medium text-blue-400">92%</td>
+                  <td className="py-4 px-6 whitespace-nowrap font-medium text-white/90">92%</td>
                 </tr>
               ))}
             </tbody>

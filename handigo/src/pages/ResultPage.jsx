@@ -64,7 +64,7 @@ const ResultPage = () => {
 
                 <div className="w-full h-2 bg-gray-200 rounded-full">
                   <div
-                    className="h-2 bg-blue-500 rounded-full"
+                    className="h-2 bg-primary-blue rounded-full"
                     style={{ width: `${item.value}%` }}
                   />
                 </div>
@@ -75,11 +75,11 @@ const ResultPage = () => {
 
         {/* ACTION BUTTONS */}
         <div className="flex gap-4 justify-center">
-          <button onClick={() => navigate(`/modul/${id || 'dasar'}/latihan`)} className="bg-blue-500 text-white text-sm px-6 py-2 rounded-full hover:bg-blue-600 active:scale-95 transition-all font-semibold">
+          <button onClick={() => navigate(`/modul/${id || 'dasar'}/latihan`)} className="bg-primary-blue text-white text-sm px-6 py-2 rounded-full hover:bg-primary-hover active:scale-95 transition-all font-semibold">
             Coba Lagi
           </button>
 
-          <button onClick={() => navigate('/modul')} className="bg-white text-blue-500 border border-blue-500 text-sm px-6 py-2 rounded-full hover:bg-blue-50 active:scale-95 transition-all font-semibold">
+          <button onClick={() => navigate('/modul')} className="bg-white text-primary-blue border border-primary-blue text-sm px-6 py-2 rounded-full hover:bg-light-blue active:scale-95 transition-all font-semibold">
             Latihan Berikutnya
           </button>
         </div>

@@ -19,7 +19,7 @@ const Hero = () => {
           </p>
           <button 
             onClick={() => navigate(user ? "/dashboard" : "/register")}
-            className="inline-block bg-blue-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-blue-600 active:scale-95 transition-all mb-10"
+            className="inline-block bg-primary-blue text-white px-8 py-3 rounded-full font-semibold hover:bg-primary-hover active:scale-95 transition-all mb-10"
           >
             Mulai
           </button>

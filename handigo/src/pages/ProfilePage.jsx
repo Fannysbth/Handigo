@@ -34,7 +34,7 @@ const ProfilePage = () => {
 
         {/* BUTTON */}
         <button 
-          className="w-full bg-light-blue text-primary-blue py-3 rounded-full hover:bg-blue-100 hover:scale-105 active:scale-95 transition-all duration-200 font-semibold mb-4" 
+          className="w-full bg-primary-blue text-white py-3 rounded-full hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all duration-200 font-semibold mb-4" 
           onClick={() => navigate('/settings')}
         >
           Edit Profil

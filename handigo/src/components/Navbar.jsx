@@ -63,7 +63,7 @@ const Navbar = () => {
               {user.name?.charAt(0).toUpperCase() || 'U'}
             </Link>
           ) : (
-            <Link to="/login" className="bg-white text-blue-900 px-6 py-2 rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-transform duration-200 cursor-pointer">
+            <Link to="/login" className="bg-white text-primary-blue px-6 py-2 rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-transform duration-200 cursor-pointer">
               Masuk
             </Link>
           )}
