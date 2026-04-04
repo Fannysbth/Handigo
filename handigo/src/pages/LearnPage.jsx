@@ -1,31 +1,34 @@
 import { Link } from 'react-router-dom';
+import Container from '@/components/Container';
 
 const LearnPage = () => {
   return (
-    <div className="flex flex-col h-full h-[calc(100vh-4rem-env(safe-area-inset-bottom))] bg-white">
+    <div className="flex-1 flex flex-col bg-white">
       
       {/* Top Header / App Bar */}
-      <header className="flex items-center justify-between px-4 py-4 border-b border-card-border shrink-0">
-        <Link to="/" className="p-2 -ml-2 text-gray-text hover:text-dark">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-        <h1 className="font-bold text-dark text-lg">Huruf A</h1>
-        <button className="p-2 -mr-2 text-gray-text hover:text-dark">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M12 16v-4"></path>
-            <path d="M12 8h.01"></path>
-          </svg>
-        </button>
+      <header className="border-b border-card-border shrink-0">
+        <Container className="flex items-center justify-between py-4">
+          <Link to="/" className="p-2 -ml-2 text-gray-text hover:text-dark">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+          <h1 className="font-bold text-dark text-lg">Huruf A</h1>
+          <button className="p-2 -mr-2 text-gray-text hover:text-dark">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 16v-4"></path>
+              <path d="M12 8h.01"></path>
+            </svg>
+          </button>
+        </Container>
       </header>
 
       {/* Content Area (Scrollable if needed) */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <Container className="flex-1 overflow-y-auto py-6 flex flex-col">
         
         {/* Video / AI Camera Placeholder (Strict 16:9 ratio) */}
-        <div className="w-full aspect-video bg-dark rounded-2xl overflow-hidden relative shadow-md">
+        <div className="w-full max-w-3xl mx-auto aspect-video bg-dark rounded-2xl overflow-hidden relative shadow-md">
           {/* Placeholder content */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50">
             <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -41,7 +44,7 @@ const LearnPage = () => {
         </div>
 
         {/* Main Progress Bar (Yellow #FFB800 underneath the camera) */}
-        <div className="mt-6">
+        <div className="mt-6 w-full max-w-3xl mx-auto">
           <div className="flex justify-between text-xs text-gray-text mb-1.5 font-medium">
             <span>Akurasi Gerakan</span>
             <span className="text-secondary font-bold">85%</span>
@@ -52,7 +55,7 @@ const LearnPage = () => {
         </div>
 
         {/* Instructions Section */}
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center flex-1">
           <div className="w-16 h-16 mx-auto bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
             <span className="text-4xl font-bold text-primary">A</span>
           </div>
@@ -62,8 +65,7 @@ const LearnPage = () => {
           </p>
         </div>
         
-      </div>
-
+      </Container>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 // Layouts
 import MainLayout from '@/layouts/MainLayout';
@@ -15,6 +16,8 @@ import DashboardPage from '@/pages/DashboardPage';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import NotFound from '@/pages/NotFound';
+import ModuleListPage from '@/pages/ModuleListPage';
+import ResultPage from '@/pages/ResultPage';
 
 const router = createBrowserRouter([
   {
@@ -27,31 +30,15 @@ const router = createBrowserRouter([
         element: <HomePage />,
       },
       {
-        path: 'learn',
-        element: <LearnPage />,
-      },
-      {
         path: 'dictionary',
         element: <DictionaryPage />,
       },
       {
-        path: 'profile',
-        element: <ProfilePage />,
+        path: '/modul',
+        element: <ModuleListPage />,
       },
       {
-        path: 'settings',
-        element: <SettingsPage />,
-      },
-      {
-        path: 'dashboard',
-        element: <DashboardPage />,
-      },
-      {
-        path: 'latihan',
-        element: <LatihanPage />,
-      },
-      {
-        path: 'modul/:id',
+        path: '/modul/:id',
         element: <ModulDetailPage />,
       },
       {
@@ -61,6 +48,40 @@ const router = createBrowserRouter([
       {
         path: '/register',
         element: <RegisterPage />,
+      },
+      {
+        element: <ProtectedRoute redirectTo="/modul" message="Silakan login untuk mengakses latihan" />,
+        children: [
+          {
+            path: 'learn',
+            element: <LearnPage />,
+          },
+          {
+            path: '/modul/:id/latihan',
+            element: <LatihanPage />,
+          },
+          {
+            path: '/modul/:id/hasil',
+            element: <ResultPage />,
+          },
+        ]
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: 'profile',
+            element: <ProfilePage />,
+          },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
+          },
+          {
+            path: 'dashboard',
+            element: <DashboardPage />,
+          },
+        ]
       },
     ],
   },

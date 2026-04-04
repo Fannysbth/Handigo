@@ -24,3 +24,19 @@ body {
   .bg-light-blue { background-color: #E6F0FF; }
   .bg-dark-gray { background-color: #222222; }
 }
+
+@layer base {
+  button {
+    @apply transition-transform duration-200 cursor-pointer;
+  }
+  button:not(:disabled):hover {
+    @apply scale-[1.03];
+  }
+  button:not(:disabled):active {
+    @apply scale-[0.97];
+  }
+  button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+}
+
