@@ -1,0 +1,16 @@
+ai/dataset/
+ai/model_output/
+
+ai/tf-env/
+tf-env/
+venv/
+
+**/tf-env/
+**/venv/
+
+ai/
+backend/node_modules/
+node_modules/
+.env
+*.env
+.gitignore.txt

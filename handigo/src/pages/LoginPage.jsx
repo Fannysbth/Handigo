@@ -4,13 +4,14 @@ import Container from '@/components/Container';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 
+
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { login } = useAuth();
+  const { login} = useAuth();
+
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
