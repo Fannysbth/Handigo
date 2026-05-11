@@ -199,4 +199,35 @@ async function getUserResults(req, res, next) {
   }
 }
 
-module.exports = { getExerciseById, saveExerciseResult, getUserResults };
+/**
+ * GET /api/exercises/results/latest
+ */
+async function getLatestResult(req, res, next) {
+  try {
+    const userId = req.user.id;
+
+    const { data, error } = await supabase
+      .from('exercise_results')
+      .select(`
+        *,
+        exercises(title),
+        modules(title)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      return res.status(404).json({
+        error: 'Belum ada hasil latihan.',
+      });
+    }
+
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getExerciseById, saveExerciseResult, getUserResults, getLatestResult };

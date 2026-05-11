@@ -4,7 +4,14 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Camera, Image as ImageIcon, Lightbulb } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { fetchExercises, saveExerciseResult, upsertProgress, fetchModuleById, fetchModuleProgress } from '../lib/database';
+import {
+  fetchExercises,
+  saveExerciseResult,
+  upsertProgress,
+  fetchModuleById,
+  fetchModuleProgress,
+  verifySign,
+} from '../lib/api';
 
 const LatihanPage = () => {
   const navigate = useNavigate();
@@ -20,40 +27,42 @@ const LatihanPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [accuracy, setAccuracy] = useState(0);
   const [isScanning, setIsScanning] = useState(true);
+  const [detectionMessage, setDetectionMessage] = useState('Mendeteksi...');
+  const [isDetected, setIsDetected] = useState(false);
   const startTime = useRef(Date.now());
 
   const videoRef = useRef(null);
-const streamRef = useRef(null);
+  const streamRef = useRef(null);
+  const canvasRef = useRef(null);
 
-useEffect(() => {
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
+  useEffect(() => {
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false,
+        });
 
-      streamRef.current = stream;
+        streamRef.current = stream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error('Camera error:', err);
+        setDetectionMessage('Kamera tidak tersedia');
       }
-    } catch (err) {
-      console.error("Camera error:", err);
-    }
-  };
+    };
 
-  startCamera();
+    startCamera();
 
-  return () => {
-    // stop camera saat keluar halaman
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
-  };
-}, []);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
-  // Get exerciseId from navigation state, or default to first exercise
   const exerciseId = location.state?.exerciseId;
   const exerciseIndex = location.state?.exerciseIndex;
 
@@ -72,26 +81,23 @@ useEffect(() => {
         setModule(mod);
         setAllExercises(exs);
 
-        // Fetch existing progress to preserve it
         if (user) {
-          const prog = await fetchModuleProgress(user.id, id);
+          const prog = await fetchModuleProgress(id);
           if (!cancelled) setExistingProgress(prog);
         }
 
-        // Determine which exercise to show
         if (exerciseId) {
           const ex = exs.find(e => e.id === exerciseId);
           setExercise(ex || exs[0]);
         } else if (exerciseIndex) {
-          const ex = exs.find(e => e.exercise_index === exerciseIndex);
+          const ex = exs.find(e => e.sort_order === exerciseIndex);
           setExercise(ex || exs[0]);
         } else {
-          // Resume: use existing progress to find next exercise
           if (user) {
-            const prog = await fetchModuleProgress(user.id, id);
+            const prog = await fetchModuleProgress(id);
             if (prog && prog.completed_exercises > 0) {
               const nextIdx = prog.completed_exercises + 1;
-              const nextEx = exs.find(e => e.exercise_index === nextIdx);
+              const nextEx = exs.find(e => e.sort_order === nextIdx);
               setExercise(nextEx || exs[0]);
             } else {
               setExercise(exs[0]);
@@ -104,31 +110,66 @@ useEffect(() => {
         startTime.current = Date.now();
       } catch (err) {
         console.error(err);
+        setDetectionMessage('Gagal memuat latihan');
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, [id, exerciseId, exerciseIndex, authLoading]);
+  }, [id, exerciseId, exerciseIndex, authLoading, user]);
 
-  // Simulate AI scanning with random accuracy
+  // Capture frame & verify sign
   useEffect(() => {
-    if (!exercise || !isScanning) return;
-    const interval = setInterval(() => {
-      setAccuracy(prev => {
-        const delta = Math.random() * 10 - 3;
-        return Math.max(0, Math.min(100, prev + delta));
-      });
-    }, 500);
+    if (!exercise || !isScanning || !videoRef.current) return;
 
-    // Auto-complete after 4-6 seconds
+    const interval = setInterval(async () => {
+      try {
+        // Capture frame dari video
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        if (!canvas || !video) return;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        const frameBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+        // Verify dengan backend
+        const result = await verifySign({
+          image_base64: frameBase64,
+          expected_sign: exercise.sign_value || exercise.title,
+          exercise_id: exercise.id,
+        });
+
+        if (result && result.detected) {
+          setAccuracy(result.accuracy || 0);
+          setIsDetected(true);
+          setDetectionMessage(`✓ Terdeteksi: ${result.detected_sign}`);
+          setIsScanning(false);
+        } else {
+          setAccuracy(result?.accuracy || 0);
+          setDetectionMessage('Mendeteksi...');
+        }
+      } catch (err) {
+        console.error('Detection error:', err);
+      }
+    }, 1000); // Scan setiap 1 detik
+
+    // Auto-stop setelah 10 detik
     const timeout = setTimeout(() => {
-      setIsScanning(false);
-      setAccuracy(Math.floor(Math.random() * 40) + 55); // 55-95 final score
-    }, 4000 + Math.random() * 2000);
+      if (isScanning) {
+        setIsScanning(false);
+        setDetectionMessage('⚠️ Waktu habis, coba lagi');
+      }
+    }, 10000);
 
-    return () => { clearInterval(interval); clearTimeout(timeout); };
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, [exercise, isScanning]);
 
   const handleNext = async () => {
@@ -141,34 +182,30 @@ useEffect(() => {
       const score = finalAccuracy;
 
       // Save exercise result
-      await saveExerciseResult({
-        userId: user.id,
-        moduleId: id,
-        exerciseId: exercise.id,
+      await saveExerciseResult(exercise.id, {
+        module_id: id,
         score,
         accuracy: finalAccuracy,
         attempts: 1,
-        timeSeconds,
+        time_seconds: timeSeconds,
       });
 
-      // Update progress — NEVER go backward!
-      const currentIndex = exercise.exercise_index;
+      // Update progress
+      const currentIndex = exercise.sort_order;
       const totalExercises = module?.total_exercises || allExercises.length;
       const previousCompleted = existingProgress?.completed_exercises || 0;
       const previousLastIndex = existingProgress?.last_exercise_index || 0;
 
-      // Only advance if this exercise is beyond what was previously completed
       const newCompleted = Math.max(previousCompleted, currentIndex);
       const newLastIndex = Math.max(previousLastIndex, currentIndex);
       const newPct = Math.min(100, (newCompleted / totalExercises) * 100);
 
-      await upsertProgress(user.id, id, {
+      await upsertProgress(id, {
         completed_exercises: newCompleted,
         progress_percentage: newPct,
         last_exercise_index: newLastIndex,
       });
 
-      // Update local state so subsequent saves are aware
       setExistingProgress(prev => ({
         ...prev,
         completed_exercises: newCompleted,
@@ -176,7 +213,7 @@ useEffect(() => {
         last_exercise_index: newLastIndex,
       }));
 
-      // Navigate to result page
+      // Navigate ke hasil
       navigate(`/modul/${id}/hasil`, {
         state: {
           score,
@@ -189,6 +226,7 @@ useEffect(() => {
       });
     } catch (err) {
       console.error(err);
+      alert('Gagal menyimpan hasil. Coba lagi.');
     } finally {
       setIsProcessing(false);
     }
@@ -197,6 +235,8 @@ useEffect(() => {
   const handleRetry = () => {
     setAccuracy(0);
     setIsScanning(true);
+    setIsDetected(false);
+    setDetectionMessage('Mendeteksi...');
     startTime.current = Date.now();
   };
 
@@ -207,7 +247,7 @@ useEffect(() => {
     </div>
   );
 
-  const currentExIdx = exercise.exercise_index;
+  const currentExIdx = exercise.sort_order;
   const totalEx = module?.total_exercises || allExercises.length;
 
   return (
@@ -245,10 +285,18 @@ useEffect(() => {
               REFERENSI
             </p>
 
-            <div className="w-full h-36 sm:h-100 bg-light-blue rounded-2xl flex items-center justify-center">
-              <div className="w-12 h-12 bg-gray-800 rounded-md flex items-center justify-center text-white">
-                <ImageIcon size={24} />
-              </div>
+            <div className="w-full h-36 sm:h-100 bg-light-blue rounded-2xl flex items-center justify-center overflow-hidden">
+              {exercise.reference_image ? (
+                <img 
+                  src={exercise.reference_image} 
+                  alt={exercise.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gray-800 rounded-md flex items-center justify-center text-white">
+                  <ImageIcon size={24} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -260,16 +308,19 @@ useEffect(() => {
 
             <div className="w-full h-100 sm:h-100 bg-light-blue rounded-2xl flex items-center justify-center relative overflow-hidden">
               <video
-  ref={videoRef}
-  autoPlay
-  playsInline
-  muted
-  className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-/>
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+              />
               <div className="absolute inset-0 border-2 border-dashed border-white/40 rounded-2xl pointer-events-none" />
             </div>
           </div>
         </div>
+
+        {/* CANVAS HIDDEN (untuk capture frame) */}
+        <canvas ref={canvasRef} className="hidden" />
 
         {/* FEEDBACK AI */}
         <div className="text-center mb-8">
@@ -281,15 +332,19 @@ useEffect(() => {
             <div className="flex justify-center mb-2">
               <div className="w-6 h-6 border-2 border-gray-300 border-t-dark-gray rounded-full animate-spin" />
             </div>
-          ) : (
+          ) : isDetected ? (
             <p className="text-sm font-semibold text-green-600 mb-2">✓ Terdeteksi</p>
+          ) : (
+            <p className="text-sm font-semibold text-yellow-600 mb-2">⚠️ Tidak Terdeteksi</p>
           )}
 
-          <p className="text-xs text-gray-500 mb-4">Akurasi</p>
+          <p className="text-xs text-gray-500 mb-4">{detectionMessage}</p>
 
           <div className="w-full h-3 bg-gray-200 rounded-full">
             <div
-              className="h-3 bg-primary-blue rounded-full transition-all duration-300"
+              className={`h-3 rounded-full transition-all duration-300 ${
+                isDetected ? 'bg-green-500' : 'bg-primary-blue'
+              }`}
               style={{ width: `${Math.round(accuracy)}%` }}
             ></div>
           </div>
@@ -309,7 +364,7 @@ useEffect(() => {
 
           <button
             onClick={handleNext}
-            disabled={isScanning || isProcessing}
+            disabled={isScanning || isProcessing || !isDetected}
             className="bg-primary-blue text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isProcessing ? 'Menyimpan...' : 'Selanjutnya'}

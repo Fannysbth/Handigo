@@ -1,16 +1,14 @@
 import Container from '@/components/Container';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Search } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { fetchModules, fetchAllUserProgress } from '../lib/database';
-
-const LEVELS = ['Semua', 'Dasar', 'Menengah', 'Lanjutan'];
+import { fetchModules, fetchAllProgress } from '../lib/api';
+import toast from 'react-hot-toast';
 
 const ModuleListPage = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
   const [modules, setModules] = useState([]);
@@ -18,8 +16,6 @@ const ModuleListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Read initial level from URL query param (?level=Dasar)
-  const [level, setLevel] = useState(searchParams.get('level') || 'Semua');
   const [search, setSearch] = useState('');
 
   // Fetch modules immediately (public page)
@@ -33,7 +29,10 @@ const ModuleListPage = () => {
         if (!cancelled) setModules(mods);
       } catch (err) {
         console.error('Failed to load modules:', err);
-        if (!cancelled) setError('Gagal memuat modul.');
+        if (!cancelled) {
+          setError('Gagal memuat modul.');
+          toast.error('Gagal memuat modul');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -42,13 +41,13 @@ const ModuleListPage = () => {
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch user progress separately
+  // Fetch user progress separately (hanya jika user login)
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
     const loadProgress = async () => {
       try {
-        const progress = await fetchAllUserProgress(user.id);
+        const progress = await fetchAllProgress(); // TIDAK ada parameter user.id
         if (!cancelled) {
           const map = {};
           progress.forEach(p => { map[p.module_id] = p; });
@@ -56,49 +55,44 @@ const ModuleListPage = () => {
         }
       } catch (err) {
         console.error('Failed to load progress:', err);
+        // Jangan set error jika unauthorized (user belum login)
+        if (err.message !== 'Unauthorized' && !cancelled) {
+          toast.error('Gagal memuat progress');
+        }
       }
     };
     loadProgress();
     return () => { cancelled = true; };
   }, [user, authLoading]);
 
-  // Update URL when level changes (keeps URL in sync for shareability/refresh)
-  const handleLevelChange = (newLevel) => {
-    setLevel(newLevel);
-    if (newLevel === 'Semua') {
-      setSearchParams({});
-    } else {
-      setSearchParams({ level: newLevel });
-    }
-  };
-
-  // Combined filtering: search + level
+  // Combined filtering: hanya search (tidak ada level di backend)
   const filteredModules = useMemo(() => {
     const q = search.toLowerCase().trim();
     return modules.filter((mod) => {
-      const matchLevel = level === 'Semua' || mod.level === level;
       const matchSearch = !q ||
         mod.title.toLowerCase().includes(q) ||
         (mod.description || '').toLowerCase().includes(q);
-      return matchLevel && matchSearch;
+      return matchSearch;
     });
-  }, [modules, level, search]);
+  }, [modules, search]);
 
-  // Determine if a module is locked based on prerequisites
+  // Determine if a module is locked (simplified - tidak ada prerequisites di backend)
   const isModuleLocked = (mod) => {
-    if (!user) return false;
-    if (!mod.prerequisites || mod.prerequisites.length === 0) return false;
-    return mod.prerequisites.some(prereqId => {
-      const p = progressMap[prereqId];
-      return !p || p.progress_percentage < 100;
-    });
+    // Untuk sekarang, semua modul unlocked jika user login
+    // Bisa ditambah logic nanti jika ada prerequisites
+    return false;
   };
 
   if (loading) return <LoadingSpinner text="Memuat modul..." />;
   if (error) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-4">
       <p className="text-red-500">{error}</p>
-      <button onClick={() => window.location.reload()} className="bg-primary-blue text-white px-4 py-2 rounded-full text-sm">Coba Lagi</button>
+      <button 
+        onClick={() => window.location.reload()} 
+        className="bg-primary-blue text-white px-4 py-2 rounded-full text-sm"
+      >
+        Coba Lagi
+      </button>
     </div>
   );
 
@@ -108,25 +102,16 @@ const ModuleListPage = () => {
 
         {/* BACK / BREADCRUMB */}
         <div className="mb-4">
-          <button onClick={() => navigate('/')} className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">
+          <button 
+            onClick={() => navigate('/')} 
+            className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+          >
             ← Kembali ke Beranda
           </button>
         </div>
 
-        {/* FILTER + SEARCH */}
+        {/* SEARCH */}
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-8">
-          <div className="flex flex-wrap gap-3">
-            {LEVELS.map((lvl) => (
-              <FilterButton
-                key={lvl}
-                active={level === lvl}
-                onClick={() => handleLevelChange(lvl)}
-              >
-                {lvl}
-              </FilterButton>
-            ))}
-          </div>
-
           <div className="w-full lg:w-[300px] relative">
             <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
@@ -140,10 +125,9 @@ const ModuleListPage = () => {
         </div>
 
         {/* RESULT COUNT */}
-        {(search || level !== 'Semua') && (
+        {search && (
           <p className="text-sm text-gray-500 mb-4">
             Menampilkan {filteredModules.length} dari {modules.length} modul
-            {level !== 'Semua' && <span className="font-medium"> — Level: {level}</span>}
             {search && <span className="font-medium"> — "{search}"</span>}
           </p>
         )}
@@ -165,13 +149,13 @@ const ModuleListPage = () => {
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Search size={48} className="text-gray-300 mb-4" />
             <p className="text-gray-500 font-medium">Tidak ada modul ditemukan</p>
-            <p className="text-sm text-gray-400 mt-1">Coba ubah kata kunci atau filter level</p>
-            {(search || level !== 'Semua') && (
+            <p className="text-sm text-gray-400 mt-1">Coba ubah kata kunci pencarian</p>
+            {search && (
               <button
-                onClick={() => { setSearch(''); handleLevelChange('Semua'); }}
+                onClick={() => setSearch('')}
                 className="mt-4 text-sm text-primary-blue hover:underline font-medium"
               >
-                Reset filter
+                Reset pencarian
               </button>
             )}
           </div>
@@ -182,34 +166,15 @@ const ModuleListPage = () => {
   );
 };
 
-
-const FilterButton = ({ children, active, onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm border transition-all duration-200
-        ${active
-          ? "bg-primary-blue text-white border-primary-blue shadow-sm"
-          : "border-gray-300 text-gray-600 hover:bg-gray-100 hover:border-gray-400"
-        }
-      `}
-    >
-      {children}
-    </button>
-  );
-};
-
-
 const ModuleCard = ({ module, progress, locked, user }) => {
   const navigate = useNavigate();
-  const { id, title, level, duration, description, total_exercises } = module;
+  const { id, title, description, total_exercises } = module;
 
   const completedExercises = progress?.completed_exercises || 0;
   const progressPct = progress?.progress_percentage || 0;
 
   const isAuthLocked = !user;
-  const isProgressionLocked = user && locked;
-  const globallyLocked = isAuthLocked || isProgressionLocked;
+  const globallyLocked = isAuthLocked || locked;
 
   return (
     <div className={`rounded-3xl p-5 flex flex-col gap-4 relative overflow-hidden transition-all duration-300 ${globallyLocked ? 'bg-gray-100' : 'bg-light-blue shadow-sm hover:shadow-md'}`}>
@@ -218,10 +183,15 @@ const ModuleCard = ({ module, progress, locked, user }) => {
         <div className="absolute inset-0 bg-white/40 z-10 pointer-events-none"></div>
       )}
 
-      {/* IMAGE */}
+      {/* IMAGE PLACEHOLDER */}
       <div className={`w-full h-32 bg-gray-200 rounded-2xl relative overflow-hidden ${globallyLocked ? 'grayscale opacity-70' : ''}`}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-4xl font-bold text-gray-400">
+            {title.charAt(0).toUpperCase()}
+          </span>
+        </div>
         <div className="absolute bottom-0 left-0 right-0 bg-black text-white text-xs py-1 text-center font-medium">
-          {level}
+          Modul {id}
         </div>
       </div>
 
@@ -232,7 +202,7 @@ const ModuleCard = ({ module, progress, locked, user }) => {
             {title}
           </h3>
           <span className="text-xs text-gray-500 whitespace-nowrap">
-            {duration}
+            {total_exercises} latihan
           </span>
         </div>
 
@@ -258,15 +228,24 @@ const ModuleCard = ({ module, progress, locked, user }) => {
       {/* BUTTON CONSTRAINTS */}
       <div className="z-20 mt-auto pt-2">
         {isAuthLocked ? (
-          <button disabled className="w-full bg-gray-200 text-gray-600 text-sm py-2 rounded-full flex items-center justify-center gap-2 opacity-80 cursor-not-allowed font-medium">
+          <button 
+            disabled 
+            className="w-full bg-gray-200 text-gray-600 text-sm py-2 rounded-full flex items-center justify-center gap-2 opacity-80 cursor-not-allowed font-medium"
+          >
             <Lock size={14} /> Login untuk membuka
           </button>
-        ) : isProgressionLocked ? (
-          <button disabled className="w-full bg-gray-200 text-gray-600 text-sm py-2 px-2 rounded-full flex items-center justify-center gap-2 opacity-80 cursor-not-allowed font-medium">
-            <Lock size={14} /> Selesaikan modul dasar
+        ) : locked ? (
+          <button 
+            disabled 
+            className="w-full bg-gray-200 text-gray-600 text-sm py-2 px-2 rounded-full flex items-center justify-center gap-2 opacity-80 cursor-not-allowed font-medium"
+          >
+            <Lock size={14} /> Modul terkunci
           </button>
         ) : (
-          <button onClick={() => navigate(`/modul/${id}`)} className="w-full bg-primary-blue text-white text-sm py-2 rounded-full hover:bg-primary-hover hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm font-semibold">
+          <button 
+            onClick={() => navigate(`/modul/${id}`)} 
+            className="w-full bg-primary-blue text-white text-sm py-2 rounded-full hover:bg-primary-hover hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm font-semibold"
+          >
             {progressPct > 0 ? "Lanjutkan" : "Mulai"}
           </button>
         )}

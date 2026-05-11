@@ -1,10 +1,52 @@
 import Container from '@/components/Container';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { fetchLatestResult } from '../lib/api';
+import toast from 'react-hot-toast';
 
 const ResultPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const location = useLocation();
+  const [result, setResult] = useState(location.state || null);
+  const [loading, setLoading] = useState(!location.state);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (location.state) return;
+
+    let cancelled = false;
+    const loadLatest = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchLatestResult();
+
+        if (!cancelled) {
+          setResult({
+            score: data.score,
+            accuracy: data.accuracy,
+            timeSeconds: data.time_seconds,
+            exerciseTitle: data.exercises?.title || 'Latihan',
+            exerciseIndex: 1, // Default jika tidak ada
+            totalExercises: 1, // Default jika tidak ada
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load latest result:', err);
+        if (!cancelled) {
+          setError('Gagal memuat hasil latihan');
+          toast.error('Gagal memuat hasil latihan');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadLatest();
+    return () => { cancelled = true; };
+  }, [location.state]);
 
   // Get result data from navigation state (passed from LatihanPage)
   const {
@@ -13,16 +55,36 @@ const ResultPage = () => {
     timeSeconds = 0,
     exerciseTitle = 'Latihan',
     exerciseIndex = 1,
-    totalExercises = 5,
-  } = location.state || {};
+    totalExercises = 1,
+  } = result || {};
 
   const isLastExercise = exerciseIndex >= totalExercises;
 
-  // Generate per-gesture detail breakdown (simulated)
-  const details = exerciseTitle.split(',').map(item => ({
-    label: item.trim(),
-    value: Math.max(40, Math.min(100, accuracy + Math.floor(Math.random() * 20 - 10))),
-  }));
+  // Generate per-gesture detail breakdown (simplified - hapus simulasi random)
+  // Jika backend punya data detail, ganti dengan data real
+  const details = [
+    { label: 'Posisi Tangan', value: accuracy },
+    { label: 'Gerakan Utama', value: Math.max(0, accuracy - 5) },
+    { label: 'Konsistensi', value: Math.min(100, accuracy + 10) },
+  ];
+
+  if (loading) {
+    return <LoadingSpinner text="Memuat hasil..." />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <p className="text-red-500">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="bg-primary-blue text-white px-4 py-2 rounded-full text-sm"
+        >
+          Coba Lagi
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-6 pb-20">

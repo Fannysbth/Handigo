@@ -4,15 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { fetchProfile } from '../lib/database';
-import { useConfirm } from '../components/ConfirmModal';
+import { fetchProfile, logoutUser } from '../lib/api';
+import toast from 'react-hot-toast';
 
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, logout, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [ConfirmDialog, confirm] = useConfirm();
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -21,10 +21,16 @@ const ProfilePage = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const p = await fetchProfile(user.id);
+        setLoading(true);
+        setError(null);
+        const p = await fetchProfile(); // TIDAK ada parameter user.id
         if (!cancelled) setProfile(p);
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load profile:', err);
+        if (!cancelled) {
+          setError('Gagal memuat profil');
+          toast.error('Gagal memuat profil');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -34,19 +40,32 @@ const ProfilePage = () => {
   }, [user, authLoading]);
 
   const handleLogout = async () => {
-    const ok = await confirm({
-      title: 'Keluar dari Akun',
-      message: 'Yakin ingin keluar? Kamu perlu login kembali untuk melanjutkan belajar.',
-      confirmText: 'Ya, Keluar',
-      cancelText: 'Batal',
-      variant: 'danger',
-    });
-    if (!ok) return;
-    await logout();
-    navigate('/login');
+    const confirmed = window.confirm('Yakin ingin keluar? Kamu perlu login kembali untuk melanjutkan belajar.');
+    if (!confirmed) return;
+    
+    try {
+      await logoutUser(); // Gunakan api.js
+      await logout(); // Logout dari AuthContext juga
+      navigate('/login');
+      toast.success('Berhasil keluar');
+    } catch (err) {
+      console.error('Logout error:', err);
+      toast.error('Gagal keluar');
+    }
   };
 
   if (authLoading || loading) return <LoadingSpinner text="Memuat profil..." />;
+  if (error) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+      <p className="text-red-500">{error}</p>
+      <button 
+        onClick={() => window.location.reload()} 
+        className="bg-primary-blue text-white px-4 py-2 rounded-full text-sm"
+      >
+        Coba Lagi
+      </button>
+    </div>
+  );
 
   const joinDate = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -59,17 +78,18 @@ const ProfilePage = () => {
         {/* HEADER */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 flex items-center justify-center text-3xl font-bold text-gray-500">
-            {user?.name?.charAt(0).toUpperCase()}
+            {user?.full_name?.charAt(0).toUpperCase() || user?.name?.charAt(0).toUpperCase() || 'U'}
           </div>
 
-          <h2 className="text-xl font-semibold">{user?.name || 'User'}</h2>
+          <h2 className="text-xl font-semibold">{user?.full_name || user?.name || 'User'}</h2>
           <p className="text-sm text-gray-500">Bergabung: {joinDate}</p>
         </div>
 
         {/* INFO */}
         <div className="bg-light-blue rounded-3xl p-5 mb-6">
-          <InfoItem label="Nama Lengkap" value={user?.name || '-'} />
+          <InfoItem label="Nama Lengkap" value={user?.full_name || user?.name || '-'} />
           <InfoItem label="Email" value={user?.email || '-'} />
+          <InfoItem label="Avatar URL" value={profile?.avatar_url || '-'} />
         </div>
 
         {/* BUTTON */}
@@ -90,9 +110,6 @@ const ProfilePage = () => {
         </button>
 
       </Container>
-
-      {/* Confirmation modal */}
-      {ConfirmDialog}
     </div>
   );
 };

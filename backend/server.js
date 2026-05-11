@@ -9,6 +9,10 @@ const exerciseRoutes = require('./routes/exercise.routes');
 const profileRoutes = require('./routes/profile.routes');
 const detectionRoutes = require('./routes/detection.routes');
 const cookieParser = require('cookie-parser');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./docs/swagger');
+
+
 
 const app = express();
 console.log('authRoutes:', typeof authRoutes);
@@ -24,6 +28,7 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true // PENTING biar cookie kebaca
 }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/modules', moduleRoutes);

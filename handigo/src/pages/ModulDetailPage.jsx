@@ -4,8 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Camera, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { fetchModuleById, fetchExercises, fetchModuleProgress, upsertProgress } from '../lib/database';
-import { useConfirm } from '../components/ConfirmModal';
+import { fetchModuleById, fetchExercises, fetchModuleProgress } from '../lib/api';
 
 const ModulDetailPage = () => {
   const navigate = useNavigate();
@@ -16,7 +15,6 @@ const ModulDetailPage = () => {
   const [exercises, setExercises] = useState([]);
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [ConfirmDialog, confirm] = useConfirm();
 
   // Load module + exercises immediately (public data)
   useEffect(() => {
@@ -48,7 +46,7 @@ const ModulDetailPage = () => {
     let cancelled = false;
     const loadProgress = async () => {
       try {
-        const prog = await fetchModuleProgress(user.id, id);
+        const prog = await fetchModuleProgress(id);
         if (!cancelled) setProgress(prog);
       } catch (err) {
         console.error(err);
@@ -78,9 +76,9 @@ const ModulDetailPage = () => {
   const handleContinue = () => {
     if (!user) return;
     const nextIndex = completedExercises + 1;
-    const nextExercise = exercises.find(e => e.exercise_index === nextIndex) || exercises[0];
+    const nextExercise = exercises.find(e => e.sort_order === nextIndex) || exercises[0];
     if (nextExercise) {
-      navigate(`/modul/${id}/latihan`, { state: { exerciseId: nextExercise.id, exerciseIndex: nextExercise.exercise_index } });
+      navigate(`/modul/${id}/latihan`, { state: { exerciseId: nextExercise.id, exerciseIndex: nextExercise.sort_order } });
     }
   };
 
@@ -105,13 +103,10 @@ const ModulDetailPage = () => {
         {/* META */}
         <div className="flex flex-wrap gap-2 mb-3">
           <span className="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600">
-            {module.level}
+            Modul {module.id}
           </span>
           <span className="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600">
             {module.total_exercises} Latihan
-          </span>
-          <span className="text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600">
-            {module.duration}
           </span>
         </div>
 
@@ -147,10 +142,9 @@ const ModulDetailPage = () => {
             <ExerciseCard
               key={ex.id}
               exercise={ex}
-              status={getExerciseStatus(ex.exercise_index)}
+              status={getExerciseStatus(ex.sort_order)}
               moduleId={id}
               user={user}
-              confirm={confirm}
               progress={progress}
             />
           ))}
@@ -170,14 +164,12 @@ const ModulDetailPage = () => {
 
       </Container>
 
-      {/* Confirmation modal */}
-      {ConfirmDialog}
     </div>
   );
 };
 
 
-const ExerciseCard = ({ exercise, status, moduleId, user, confirm, progress }) => {
+const ExerciseCard = ({ exercise, status, moduleId, user, progress }) => {
   const navigate = useNavigate();
   const isDone = status === "done";
   const isProgress = status === "progress";
@@ -186,24 +178,18 @@ const ExerciseCard = ({ exercise, status, moduleId, user, confirm, progress }) =
   const handleAction = () => {
     if (user) {
       navigate(`/modul/${moduleId}/latihan`, {
-        state: { exerciseId: exercise.id, exerciseIndex: exercise.exercise_index }
+        state: { exerciseId: exercise.id, exerciseIndex: exercise.sort_order }
       });
     }
   };
 
-  // "Ulang" for completed exercises — show confirmation first
+  // "Ulang" for completed exercises — ganti dengan window.confirm
   const handleRetry = async () => {
     if (!user) return;
-    const ok = await confirm({
-      title: 'Ulangi Latihan?',
-      message: `Yakin ingin mengulang "${exercise.title}"? Skor sebelumnya akan ditambahkan sebagai percobaan baru.`,
-      confirmText: 'Ya, Ulangi',
-      cancelText: 'Batal',
-      variant: 'warning',
-    });
+    const ok = window.confirm(`Yakin ingin mengulang "${exercise.title}"? Skor sebelumnya akan ditambahkan sebagai percobaan baru.`);
     if (ok) {
       navigate(`/modul/${moduleId}/latihan`, {
-        state: { exerciseId: exercise.id, exerciseIndex: exercise.exercise_index }
+        state: { exerciseId: exercise.id, exerciseIndex: exercise.sort_order }
       });
     }
   };
@@ -223,13 +209,13 @@ const ExerciseCard = ({ exercise, status, moduleId, user, confirm, progress }) =
               "bg-gray-300 text-gray-500"}
           `}
         >
-          {isDone ? <Check size={18} strokeWidth={3} /> : exercise.exercise_index}
+          {isDone ? <Check size={18} strokeWidth={3} /> : exercise.sort_order}
         </div>
 
         {/* TEXT */}
         <div>
           <p className="font-medium">
-            Latihan {exercise.exercise_index} — {exercise.title}
+            Latihan {exercise.sort_order} — {exercise.title}
           </p>
 
           {isDone && (

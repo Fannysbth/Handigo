@@ -1,53 +1,98 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Container from '@/components/Container';
-
-const modules = [
-  { title: "Dasar", desc: "Alfabet & Angka", level: "Dasar" },
-  { title: "Menengah", desc: "Kosakata Umum", level: "Menengah" },
-  { title: "Lanjutan", desc: "Kalimat Sehari-hari", level: "Lanjutan" },
-];
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { fetchModules } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 const ModulePreview = () => {
   const navigate = useNavigate();
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadModules = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchModules();
+        if (!cancelled) setModules(data.slice(0, 3)); // Show only first 3
+      } catch (err) {
+        console.error('Failed to load modules:', err);
+        if (!cancelled) {
+          setError('Gagal memuat modul');
+          toast.error('Gagal memuat modul');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadModules();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleModuleClick = (module) => {
+    // Jangan upsert progress - biarkan user mulai sendiri
+    navigate(`/modul/${module.id}`, { state: { module } });
+  };
+
+  if (loading) return <LoadingSpinner text="Memuat modul..." />;
+  if (error) return (
+    <div className="flex-1 flex items-center justify-center">
+      <p className="text-red-500">{error}</p>
+    </div>
+  );
 
   return (
-    <section className="mb-16 md:mb-20">
+    <section id="modules" className="mb-16 md:mb-20">
       <Container>
-        <div className="bg-light-blue py-8 sm:py-12 px-4 sm:px-6 md:px-8 rounded-2xl sm:rounded-[3rem]">
-          <h2 className="text-2xl md:text-3xl font-bold text-primary-blue text-center mb-8">
-            Preview Modul
+        <div className="text-center mb-8 md:mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-primary-blue mb-4">
+            Modul Latihan
           </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto text-sm md:text-base">
+            Mulai belajar bahasa isyarat dengan modul-modul interaktif yang dirancang khusus untuk pemula hingga mahir.
+          </p>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {modules.map((item, index) => (
-              <div
-                key={index}
-                onClick={() => navigate(`/modul?level=${item.level}`)}
-                className="bg-primary-blue text-white px-6 py-5 
-                           rounded-[2rem] cursor-pointer
-                           flex flex-col justify-between
-                           transition-all duration-200
-                           hover:scale-[1.02] hover:shadow-xl hover:bg-primary-hover"
-              >
-                {/* TEXT */}
-                <div>
-                  <h4 className="text-lg font-bold leading-tight">
-                    {item.title}
-                  </h4>
-                  <p className="text-sm text-blue-100 mt-1">
-                    {item.desc}
-                  </p>
-                </div>
-
-                {/* BUTTON MINI */}
-                <div className="mt-4">
-                  <span className="text-xs bg-white text-primary-blue px-4 py-1.5 rounded-full font-semibold">
-                    Lihat Selengkapnya...
-                  </span>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          {modules.map((module) => (
+            <div
+              key={module.id}
+              onClick={() => handleModuleClick(module)}
+              className="bg-light-blue rounded-2xl p-6 cursor-pointer hover:shadow-lg hover:-translate-y-2 transition-all duration-300"
+            >
+              <div className="w-full h-32 bg-gray-200 rounded-xl mb-4 flex items-center justify-center">
+                <span className="text-4xl font-bold text-gray-500">
+                  {module.title.charAt(0).toUpperCase()}
+                </span>
               </div>
-            ))}
-          </div>
+              
+              <h3 className="text-xl font-semibold text-primary-blue mb-2">
+                {module.title}
+              </h3>
+              
+              <p className="text-gray-600 text-sm mb-4">
+                {module.description}
+              </p>
+              
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>{module.total_exercises} Latihan</span>
+                <span className="text-primary-blue font-medium">Mulai →</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center mt-8">
+          <button
+            onClick={() => navigate('/modul')}
+            className="bg-primary-blue text-white px-6 py-3 rounded-full hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all font-semibold"
+          >
+            Lihat Semua Modul
+          </button>
         </div>
       </Container>
     </section>

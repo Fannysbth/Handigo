@@ -9,7 +9,7 @@ const SettingsPage = () => {
   const { user, updateProfile } = useAuth();
 
   const [form, setForm] = useState({
-    name: '',
+    full_name: '',  // Ubah dari name ke full_name
     email: '',
     password: '',
   });
@@ -19,7 +19,7 @@ const SettingsPage = () => {
   useEffect(() => {
     if (user) {
       setForm({
-        name: user.name || '',
+        full_name: user.full_name || user.name || '',  // Ubah dengan fallback
         email: user.email || '',
         password: '',
       });
@@ -31,14 +31,14 @@ const SettingsPage = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) {
+    if (!form.full_name.trim()) {  // Ubah validasi
       toast.error('Nama tidak boleh kosong');
       return;
     }
     setIsSubmitting(true);
     try {
       await updateProfile({
-        name: form.name,
+        full_name: form.full_name,  // Ubah payload
         password: form.password || undefined,
       });
       navigate('/profile');
@@ -65,8 +65,8 @@ const SettingsPage = () => {
 
           <Input
             label="Nama Lengkap"
-            name="name"
-            value={form.name}
+            name="full_name"  // Ubah name
+            value={form.full_name}
             onChange={handleChange}
           />
 
