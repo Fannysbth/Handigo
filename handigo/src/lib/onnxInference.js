@@ -34,17 +34,15 @@ export const preprocessImage = (canvas, inputSize = 640) => {
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
 
-  // Resize canvas to model input size
   canvas.width = inputSize;
   canvas.height = inputSize;
 
-  // Normalize and prepare tensor data
   const normalized = new Float32Array(inputSize * inputSize * 3);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
-    normalized[idx] = data[i] / 255.0; // R
-    normalized[idx + inputSize * inputSize] = data[i + 1] / 255.0; // G
-    normalized[idx + 2 * inputSize * inputSize] = data[i + 2] / 255.0; // B
+    normalized[idx] = data[i] / 255.0;
+    normalized[idx + inputSize * inputSize] = data[i + 1] / 255.0;
+    normalized[idx + 2 * inputSize * inputSize] = data[i + 2] / 255.0;
   }
 
   return new ort.Tensor('float32', normalized, [1, 3, inputSize, inputSize]);
@@ -54,7 +52,6 @@ export const runInference = async (imageData, inputSize = 640) => {
   if (!session) {
     throw new Error('Model not loaded. Call loadONNXModel first.');
   }
-
   try {
     const feeds = { images: imageData };
     const results = await session.run(feeds);
@@ -65,50 +62,94 @@ export const runInference = async (imageData, inputSize = 640) => {
   }
 };
 
-export const postprocessOutput = (output, originalWidth, originalHeight, confidenceThreshold = 0.5) => {
+export const postprocessOutput = (
+  output,
+  originalWidth,
+  originalHeight,
+  confidenceThreshold = 0.5
+) => {
+  // FIX: output sudah tensor langsung, bukan { output0: tensor }
+  const tensor = output;
+  const data = tensor.data;
+  const dims = tensor.dims; // [1, 30, 8400]
+
+  const featuresFirst = dims[1] < dims[2];
+  const numFeatures = featuresFirst ? dims[1] : dims[2];
+  const numBoxes    = featuresFirst ? dims[2] : dims[1];
+  const numClasses  = numFeatures - 4;
+
   const detections = [];
-  const outputData = output.output0.data; // YOLOv8 output tensor
 
-  // Parse YOLOv8 output format: [x, y, w, h, conf, class0_conf, class1_conf, ...]
-  const boxesPerPrediction = 85; // 4 coords + 1 conf + 80 classes (COCO)
-  const numPredictions = outputData.length / boxesPerPrediction;
+  for (let i = 0; i < numBoxes; i++) {
+    let cx, cy, w, h;
+    const classScores = [];
 
-  for (let i = 0; i < numPredictions; i++) {
-    const offset = i * boxesPerPrediction;
-    const confidence = outputData[offset + 4];
-
-    if (confidence < confidenceThreshold) continue;
-
-    const x = outputData[offset];
-    const y = outputData[offset + 1];
-    const w = outputData[offset + 2];
-    const h = outputData[offset + 3];
-
-    // Find class with highest confidence
-    let maxClassConf = 0;
-    let classId = 0;
-    for (let j = 5; j < boxesPerPrediction; j++) {
-      if (outputData[offset + j] > maxClassConf) {
-        maxClassConf = outputData[offset + j];
-        classId = j - 5;
+    if (featuresFirst) {
+      cx = data[0 * numBoxes + i];
+      cy = data[1 * numBoxes + i];
+      w  = data[2 * numBoxes + i];
+      h  = data[3 * numBoxes + i];
+      for (let c = 0; c < numClasses; c++) {
+        classScores[c] = data[(4 + c) * numBoxes + i];
+      }
+    } else {
+      const offset = i * numFeatures;
+      cx = data[offset];
+      cy = data[offset + 1];
+      w  = data[offset + 2];
+      h  = data[offset + 3];
+      for (let c = 0; c < numClasses; c++) {
+        classScores[c] = data[offset + 4 + c];
       }
     }
 
-    // Scale to original image size
-    const bbox = {
-      x: (x - w / 2) * (originalWidth / 640),
-      y: (y - h / 2) * (originalHeight / 640),
-      width: w * (originalWidth / 640),
-      height: h * (originalHeight / 640),
-      confidence: confidence * maxClassConf,
-      className: COCO_CLASSES[classId] || 'unknown',
-      classId,
-    };
+    let maxScore = -Infinity;
+    let classId = 0;
+    for (let c = 0; c < numClasses; c++) {
+      if (classScores[c] > maxScore) {
+        maxScore = classScores[c];
+        classId = c;
+      }
+    }
 
-    detections.push(bbox);
+    if (maxScore < confidenceThreshold) continue;
+
+    detections.push({
+      x:          ((cx - w / 2) / 640) * originalWidth,
+      y:          ((cy - h / 2) / 640) * originalHeight,
+      width:      (w / 640) * originalWidth,
+      height:     (h / 640) * originalHeight,
+      confidence: maxScore,
+      classId,
+      className:  String.fromCharCode(65 + classId), // 0=A, 1=B, dst
+    });
   }
 
-  return detections.sort((a, b) => b.confidence - a.confidence);
+  return nms(detections, 0.45);
 };
+
+function iou(a, b) {
+  const x1 = Math.max(a.x, b.x);
+  const y1 = Math.max(a.y, b.y);
+  const x2 = Math.min(a.x + a.width,  b.x + b.width);
+  const y2 = Math.min(a.y + a.height, b.y + b.height);
+  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+  const union = a.width * a.height + b.width * b.height - inter;
+  return union > 0 ? inter / union : 0;
+}
+
+function nms(dets, iouThr) {
+  const sorted = [...dets].sort((a, b) => b.confidence - a.confidence);
+  const kept = [];
+  const seen = new Set();
+  for (let i = 0; i < sorted.length; i++) {
+    if (seen.has(i)) continue;
+    kept.push(sorted[i]);
+    for (let j = i + 1; j < sorted.length; j++) {
+      if (iou(sorted[i], sorted[j]) > iouThr) seen.add(j);
+    }
+  }
+  return kept;
+}
 
 export { COCO_CLASSES };

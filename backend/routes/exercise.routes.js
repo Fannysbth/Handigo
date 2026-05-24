@@ -1,15 +1,44 @@
 const express = require('express');
 const router = express.Router();
-const { getExerciseById, saveExerciseResult, getUserResults, getLatestResult } = require('../controllers/exercise.controller');
+
+const {
+  getExerciseById,
+  saveExerciseResult,
+  getUserResults,
+  getLatestResult,
+  getLatestResultAndRecommendedNext,
+} = require('../controllers/exercise.controller');
+
 const { authenticate } = require('../middleware/auth.middleware');
 
-router.get('/results', authenticate, getUserResults);           // History hasil latihan user
-router.get('/:id', getExerciseById);                           // Detail 1 exercise (publik)
-router.post('/:id/result', authenticate, saveExerciseResult);  // Simpan hasil latihan
+
+// =========================
+// RESULTS ROUTES (WAJIB DI ATAS)
+// =========================
+
+// ambil history hasil latihan user
+router.get('/results', authenticate, getUserResults);
+
+// ambil hasil latihan terakhir
+router.get('/results/latest', authenticate, getLatestResult);
+
+// ambil hasil terakhir + rekomendasi latihan berikutnya
 router.get(
-  '/results/latest',
+  '/results/latest/next',
   authenticate,
-  getLatestResult
+  getLatestResultAndRecommendedNext
 );
+
+
+// =========================
+// EXERCISE ROUTES
+// =========================
+
+// detail 1 exercise (public)
+router.get('/:id', getExerciseById);
+
+// simpan hasil latihan
+router.post('/:id/result', authenticate, saveExerciseResult);
+
 
 module.exports = router;

@@ -56,11 +56,13 @@ export const AuthProvider = ({ children }) => {
 
   const googleLoginHandler = async (credential) => {
     try {
+      // response Google login BE: { needProfile, email, full_name?, user? }
       const result = await googleLogin(credential);
 
       if (!result.needProfile) {
         const userData = await getMe();
         setUser(userData);
+        return { ...result, email: result.user?.email };
       }
 
       return result;
@@ -69,6 +71,7 @@ export const AuthProvider = ({ children }) => {
       throw err;
     }
   };
+
 
   const logout = async () => {
     try {

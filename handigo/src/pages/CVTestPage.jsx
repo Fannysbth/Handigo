@@ -44,26 +44,79 @@ const MODELS = [
 // ─── Webcam hook ──────────────────────────────────────────────────────────────
 function useWebcam() {
   const videoRef = useRef(null);
+
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     let stream = null;
-    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-      .then((s) => {
-        stream = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-          videoRef.current.onloadedmetadata = () => setIsReady(true);
+    let mounted = true;
+
+    const startCamera = async () => {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user',
+          },
+          audio: false,
+        });
+
+        if (!mounted) return;
+
+        stream = mediaStream;
+
+        const video = videoRef.current;
+
+        if (!video) {
+          throw new Error('Video element missing');
         }
-      })
-      .catch((err) => setError(err.message || 'Camera denied'));
-    return () => stream?.getTracks().forEach((t) => t.stop());
+
+        video.srcObject = mediaStream;
+
+        // JANGAN await play()
+        video.onloadedmetadata = () => {
+          video.play()
+            .then(() => {
+              if (mounted) {
+                setIsReady(true);
+              }
+            })
+            .catch((err) => {
+              console.error('Play error:', err);
+              if (mounted) {
+                setError(err.message);
+              }
+            });
+        };
+
+      } catch (err) {
+        console.error(err);
+
+        if (mounted) {
+          setError(err.message || 'Camera error');
+        }
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      mounted = false;
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, []);
 
-  return { videoRef, isReady, error };
+  return {
+    videoRef,
+    isReady,
+    error,
+  };
 }
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function CVTestPage() {
   const CONFIDENCE = 0.45;
@@ -250,6 +303,10 @@ export default function CVTestPage() {
       console.error('Inference error:', err);
     }
   }, [activeModelId, activeModel, isReady, videoRef]);
+  useEffect(() => {
+  console.log('isReady:', isReady);
+  console.log('camError:', camError);
+}, [isReady, camError]);
 
   useEffect(() => {
     if (running && activeState.status === 'ready') {
@@ -324,7 +381,7 @@ export default function CVTestPage() {
                 <p style={{ color: '#ff6b6b', margin: '8px 0 0', fontSize: 13 }}>{camError}</p>
               </div>
             ) : (
-              <video ref={videoRef} autoPlay playsInline muted style={s.video} />
+              <video ref={videoRef} autoPlay playsInline muted controls={false} style={s.video} />
             )}
             <canvas ref={overlayCanvasRef} style={s.overlay} />
             <canvas ref={captureCanvasRef} style={{ display: 'none' }} />

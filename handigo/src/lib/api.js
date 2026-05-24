@@ -18,6 +18,10 @@ export const fetchExercises = (moduleId) => {
   return apiFetch(`/modules/${moduleId}/exercises`);
 };
 
+// Alias (biar FE tidak perlu tahu struktur BE)
+export const fetchModuleExercises = fetchExercises;
+
+
 export const fetchExerciseById = (exerciseId) => {
   return apiFetch(`/exercises/${exerciseId}`);
 };
@@ -36,6 +40,14 @@ export const fetchUserResults = (limit = 20) => {
 export const fetchLatestResult = () => {
   return apiFetch('/exercises/results/latest');
 };
+
+// Kebutuhan halaman ResultPage agar:
+// kiri = latihan terakhir
+// kanan = latihan berikutnya yang belum selesai (atau rekomendasi)
+export const fetchLatestResultAndNextExercises = (moduleId) => {
+  return apiFetch(`/exercises/results/latest/next?module_id=${moduleId}`);
+};
+
 
 /**
  * =========================
@@ -143,3 +155,4 @@ export const completeProfile = (email, password, full_name) => {
     body: JSON.stringify({ email, password, full_name }),
   });
 };
+

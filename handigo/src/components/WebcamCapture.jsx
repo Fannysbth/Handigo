@@ -7,10 +7,10 @@ export default function WebcamCapture({
   onFrame,
   canvasRef,
   showDashedBorder = true,
+  fps = 10,
 }) {
   const { videoRef, isReady, error } = useWebcam();
 
-  // Capture frames for inference
   const handleFrameCapture = useCallback(() => {
     if (!isEnabled || !videoRef.current || !canvasRef?.current) return;
 
@@ -25,13 +25,12 @@ export default function WebcamCapture({
     if (onFrame) onFrame(canvas);
   }, [isEnabled, videoRef, canvasRef, onFrame]);
 
-  // Set up frame capture interval — fixed: was React.useEffect (React not imported)
   useEffect(() => {
     if (!isEnabled || !isReady) return;
 
-    const interval = setInterval(handleFrameCapture, 100); // 10 FPS
+    const interval = setInterval(handleFrameCapture, 1000 / fps);
     return () => clearInterval(interval);
-  }, [isEnabled, isReady, handleFrameCapture]);
+  }, [isEnabled, isReady, handleFrameCapture, fps]);
 
   if (error) {
     return (
@@ -54,8 +53,10 @@ export default function WebcamCapture({
         autoPlay
         playsInline
         muted
-        className="w-full h-64 object-cover"
+        className="w-full h-full  object-cover"
       />
+      {/* Hidden canvas — dipakai untuk capture frame inference */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
       {showDashedBorder && (
         <div className="absolute inset-0 border-2 border-dashed border-white/40 rounded-2xl pointer-events-none" />
       )}
