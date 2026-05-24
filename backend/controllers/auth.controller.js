@@ -198,40 +198,45 @@ async function googleLogin(req, res) {
 
     const ticket = await client.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
 
     const email = payload.email;
     const full_name = payload.name;
+    const avatar_url = payload.picture;
 
-    console.log("GOOGLE USER:", { email, full_name });
-
-    // cek user di profiles
-    const { data: user } = await supabase
+    // 🔥 1. cek profile dulu
+    let { data: profile } = await supabase
       .from("profiles")
       .select("*")
       .eq("email", email)
       .maybeSingle();
 
-    if (!user) {
+    // 🔥 2. kalau belum ada → suruh buat profile
+    if (!profile) {
       return res.json({
         needProfile: true,
         email,
-        full_name
+        full_name,
+        avatar_url,
       });
     }
 
+    // 🔥 3. kalau ada → login sukses
+    // (Tidak set cookie karena FE akan menganggap sudah login via /auth/me,
+    // tapi /auth/google memang belum membuat cookie.
+    // Setelah FE complete-profile, BE akan login dan set cookie.)
     return res.json({
       needProfile: false,
-      user
+      user: profile,
     });
 
   } catch (err) {
     return res.status(401).json({
       error: "Google token invalid",
-      detail: err.message
+      detail: err.message,
     });
   }
 }
@@ -318,8 +323,27 @@ async function completeProfile(req, res) {
       });
     }
 
+    // Setelah lengkap profile, lakukan login pakai email/password agar cookie ter-set
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (loginError) {
+      return res.status(500).json({
+        error: loginError.message || 'Gagal login setelah complete profile',
+      });
+    }
+
+    res.cookie('access_token', loginData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.json({
-      message: "Registrasi via Google selesai (password dibuat)"
+      message: "Registrasi via Google selesai (password dibuat dan login otomatis)"
     });
 
   } catch (err) {
