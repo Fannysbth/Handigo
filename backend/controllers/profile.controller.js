@@ -1,104 +1,87 @@
 const { supabase, supabaseAdmin } = require('../config/supabase');
 
 /**
- * @swagger
- * /api/profile:
- *   get:
- *     summary: Ambil data profil user yang sedang login
- *     tags: [Profile]
- *     security:
- *       - cookieAuth: []
- *     responses:
- *       200:
- *         description: Data profil berhasil diambil
- *         content:
- *           application/json:
- *             example:
- *               id: user_123
- *               email: user@mail.com
- *               full_name: Budi Santoso
- *               avatar_url: https://example.com/avatar.png
- *               created_at: 2026-01-01T10:00:00Z
- *       404:
- *         description: Profil tidak ditemukan
- *         content:
- *           application/json:
- *             example:
- *               error: Profil tidak ditemukan.
- */
-/**
  * GET /api/profile
  */
 async function getProfile(req, res, next) {
   try {
     const userId = req.user.id;
-    const { data, error } = await supabase
+
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
-    if (error) return res.status(404).json({ error: 'Profil tidak ditemukan.' });
-    res.json(data);
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({
+        error: 'Database error',
+        detail: error.message,
+      });
+    }
+
+    const safeData = {
+      id: userId,
+      email: req.user.email,
+      full_name:
+        data?.full_name ||
+        req.user.user_metadata?.full_name ||   // ⚠️ FIX INI (bukan "name")
+        '',
+      avatar_url: data?.avatar_url || null,
+      created_at: data?.created_at || null,
+    };
+
+    res.json(safeData);
   } catch (err) {
     next(err);
   }
 }
 
 /**
- * @swagger
- * /api/profile:
- *   put:
- *     summary: Update profil user
- *     tags: [Profile]
- *     security:
- *       - cookieAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               full_name:
- *                 type: string
- *                 example: Budi Santoso
- *               avatar_url:
- *                 type: string
- *                 example: https://example.com/avatar.png
- *     responses:
- *       200:
- *         description: Profil berhasil diupdate
- *         content:
- *           application/json:
- *             example:
- *               id: user_123
- *               full_name: Budi Santoso
- *               avatar_url: https://example.com/avatar.png
- *               updated_at: 2026-01-01T10:00:00Z
- *       500:
- *         description: Gagal update profil
- */
-/**
  * PUT /api/profile
- * Body: { full_name, avatar_url, ... }
  */
 async function updateProfile(req, res, next) {
   try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Unauthorized - no user'
+      });
+    }
+
     const userId = req.user.id;
-    const { full_name, avatar_url } = req.body;
+    const { full_name, avatar_url, email } = req.body;
 
-    const { data, error } = await supabase
+    const updatePayload = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (full_name !== undefined) updatePayload.full_name = full_name;
+    if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url;
+
+    const { data, error } = await supabaseAdmin
       .from('profiles')
-      .update({ full_name, avatar_url, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', userId)
-      .select()
-      .single();
+      .select('*')
+      .maybeSingle();
 
-    if (error) throw error;
-    res.json(data);
+    if (error) {
+      console.log('SUPABASE UPDATE ERROR:', error);
+      return res.status(500).json({
+        error: 'Failed to update profile',
+        detail: error.message,
+      });
+    }
+
+    return res.json(data);
+
   } catch (err) {
+    console.log('UPDATE PROFILE CRASH:', err);
     next(err);
   }
 }
 
-module.exports = { getProfile, updateProfile };
+module.exports = {
+  getProfile,
+  updateProfile,
+};

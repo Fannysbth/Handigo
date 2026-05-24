@@ -134,7 +134,7 @@ const DashboardPage = () => {
   const totalEx = lastModule?.modules?.total_exercises || 0;
 
   return (
-    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-6 pb-20">
+    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-20">
       <Container>
         {/* HEADER */}
         <div className="mb-6 sm:mb-8 md:mb-10">

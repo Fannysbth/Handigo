@@ -72,24 +72,21 @@ const ProfilePage = () => {
     : 'Baru saja';
 
   return (
-    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-6 pb-20">
+    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-20">
       <Container>
 
         {/* HEADER */}
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-24 h-24 rounded-full bg-gray-200 mb-4 flex items-center justify-center text-3xl font-bold text-gray-500">
-            {user?.full_name?.charAt(0).toUpperCase() || user?.name?.charAt(0).toUpperCase() || 'U'}
-          </div>
+          
 
-          <h2 className="text-xl font-semibold">{user?.full_name || user?.name || 'User'}</h2>
+          <h2 className="text-xl font-semibold">{profile?.full_name || user?.full_name || user?.name || 'User'}</h2>
           <p className="text-sm text-gray-500">Bergabung: {joinDate}</p>
         </div>
 
         {/* INFO */}
         <div className="bg-light-blue rounded-3xl p-5 mb-6">
-          <InfoItem label="Nama Lengkap" value={user?.full_name || user?.name || '-'} />
-          <InfoItem label="Email" value={user?.email || '-'} />
-          <InfoItem label="Avatar URL" value={profile?.avatar_url || '-'} />
+          <InfoItem label="Nama Lengkap" value={profile?.full_name || user?.full_name || user?.name || '-'} />
+          <InfoItem label="Email" value={profile?.email || user?.email || '-'} />
         </div>
 
         {/* BUTTON */}
@@ -106,7 +103,7 @@ const ProfilePage = () => {
           className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 py-3 rounded-full hover:scale-105 active:scale-95 transition-transform duration-200 font-semibold border border-red-100"
         >
           <LogOut size={16} />
-          Keluar
+          Logout
         </button>
 
       </Container>

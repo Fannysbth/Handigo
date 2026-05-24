@@ -6,6 +6,7 @@ import {
   getMe,
   googleLogin,
   completeProfile as completeProfileAPI,
+  updateProfile as updateProfileAPI,
 } from '../lib/api';
 import toast from 'react-hot-toast';
 
@@ -93,13 +94,13 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (data) => {
     try {
-      // implementasi updateProfile jika ada di api.js
-      // await updateProfileAPI(data);
-      // const updatedUser = await getMe();
-      // setUser(updatedUser);
+      await updateProfileAPI(data);
+      const updated = await getMe();
+      setUser(updated);
       toast.success('Profil berhasil diperbarui');
+      return true;
     } catch (err) {
-      toast.error('Gagal memperbarui profil');
+      toast.error(err.message || 'Gagal memperbarui profil');
       throw err;
     }
   };

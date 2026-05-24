@@ -50,20 +50,31 @@ async function register(req, res, next) {
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name }
+      user_metadata: {
+        full_name, // 🔥 SATU SUMBER
+      },
     });
 
     if (error) return res.status(400).json({ error: error.message });
 
-    await supabase.from('profiles').upsert({
-      id: data.user.id,
-      email,
-      full_name
-    });
+    // 🔥 AUTO CREATE PROFILE (SOURCE OF TRUTH)
+    const full_name_final =
+  full_name ||
+  data.user.user_metadata?.full_name ||
+  data.user.user_metadata?.name ||
+  'User';
 
-    res.status(201).json({
+await supabase.from('profiles').upsert({
+  id: data.user.id,
+  email,
+  full_name: full_name,   // wajib
+  avatar_url: null,
+}, { onConflict: 'id' });
+console.log('PROFILE UPSERT DONE FOR', data.user.id);
+
+    return res.status(201).json({
       message: 'Register berhasil',
-      user: data.user
+      user: data.user,
     });
 
   } catch (err) {
