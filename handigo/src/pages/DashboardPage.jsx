@@ -2,7 +2,9 @@ import Container from '@/components/Container';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Camera } from 'lucide-react';
+import ModulePreview from '@/components/ModulePreview';
+import { fetchProfile } from '../lib/api';
+
 import { useState, useEffect } from 'react';
 import {
   fetchAllProgress,
@@ -13,7 +15,7 @@ import {
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-
+  const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
   const [lastModule, setLastModule] = useState(null);
   const [recentResults, setRecentResults] = useState([]);
@@ -35,15 +37,17 @@ const DashboardPage = () => {
         setError(null);
 
         // Fetch last accessed module & all progress
-        const [lm, allProgress, rr] = await Promise.all([
-          fetchLastAccessedModule(),
-          fetchAllProgress(),
-          fetchUserResults(10),
-        ]);
+        const [lm, allProgress, rr, p] = await Promise.all([
+  fetchLastAccessedModule(),
+  fetchAllProgress(),
+  fetchUserResults(10),
+  fetchProfile(),
+]);
 
         if (cancelled) return;
 
         setLastModule(lm);
+        setProfile(p);
         setRecentResults(rr);
 
         // Calculate stats from progress data
@@ -139,7 +143,7 @@ const DashboardPage = () => {
         {/* HEADER */}
         <div className="mb-6 sm:mb-8 md:mb-10">
           <h1 className="text-2xl sm:text-3xl font-bold text-primary-blue">
-            Halo, {user?.full_name || user?.name || 'User'}!
+            Halo, {profile?.full_name || user?.full_name || user?.name || 'User'}!
           </h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">
             Selamat datang kembali. Yuk lanjutkan belajarmu hari ini.
@@ -147,56 +151,18 @@ const DashboardPage = () => {
         </div>
 
         {/* STATS */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-6 mb-8 sm:mb-10 cursor-default">
-          <StatCard
-            title="Modul Selesai"
-            value={stats?.completedModules || 0}
-          />
-          <StatCard title="Streak Hari" value={stats?.streak || 0} />
-          <StatCard title="Rata-Rata Skor" value={`${stats?.avgAccuracy || 0}%`} />
-        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 mb-8 sm:mb-10 cursor-default w-full">
+  <StatCard
+    title="Modul Selesai"
+    value={stats?.completedModules || 0}
+  />
+  <StatCard
+    title="Streak Hari"
+    value={stats?.streak || 0}
+  />
+</div>
 
-        {/* LANJUTKAN BELAJAR */}
-        <div className="bg-light-blue rounded-2xl sm:rounded-3xl p-4 sm:p-6 mb-8 sm:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-            <div className="w-16 h-16 bg-gray-200 rounded-xl flex items-center justify-center shrink-0 text-gray-500">
-              <Camera size={28} />
-            </div>
-
-            <div className="w-full">
-              <h3 className="font-semibold text-gray-800">
-                {lastModule
-                  ? `Modul: ${moduleName}`
-                  : 'Belum ada modul aktif'}
-              </h3>
-
-              {lastModule && (
-                <>
-                  <div className="w-full sm:max-w-[250px] h-2 bg-gray-200 rounded-full mt-2">
-                    <div
-                      className="h-2 bg-primary-blue rounded-full transition-all duration-500"
-                      style={{ width: `${progressPct}%` }}
-                    ></div>
-                  </div>
-
-                  <p className="text-xs text-gray-600 mt-1">
-                    {Math.round(progressPct)}% selesai — {completedEx} dari{' '}
-                    {totalEx} latihan
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={() =>
-              navigate(moduleId ? `/modul/${moduleId}` : '/modul')
-            }
-            className="bg-primary-blue text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all w-full sm:w-auto shrink-0 md:whitespace-nowrap"
-          >
-            {lastModule ? 'Lanjut' : 'Pilih Modul'}
-          </button>
-        </div>
+        <ModulePreview />
 
         {/* GRAFIK */}
         <div className="mb-8 sm:mb-10">
@@ -245,17 +211,14 @@ const DashboardPage = () => {
               <table className="w-full text-sm min-w-[500px]">
                 <thead className="bg-black/30">
                   <tr>
-                    <th className="py-4 px-6 text-left whitespace-nowrap">
+                    <th className="py-4 px-6 text-center whitespace-nowrap">
                       Tanggal
                     </th>
-                    <th className="py-4 px-6 text-left whitespace-nowrap">
+                    <th className="py-4 px-6 text-center whitespace-nowrap">
                       Modul
                     </th>
-                    <th className="py-4 px-6 text-left whitespace-nowrap">
+                    <th className="py-4 px-6 text-center whitespace-nowrap">
                       Latihan
-                    </th>
-                    <th className="py-4 px-6 text-left whitespace-nowrap">
-                      Akurasi
                     </th>
                   </tr>
                 </thead>
@@ -266,19 +229,16 @@ const DashboardPage = () => {
                       key={result.id}
                       className="border-t border-white/10 hover:bg-white/5 transition-colors"
                     >
-                      <td className="py-4 px-6 whitespace-nowrap">
+                      <td className="py-4 px-6 text-center whitespace-nowrap">
                         {new Date(result.created_at).toLocaleDateString(
                           'id-ID'
                         )}
                       </td>
-                      <td className="py-4 px-6 whitespace-nowrap">
+                      <td className="py-4 px-6 text-center whitespace-nowrap">
                         {result.modules?.title || '-'}
                       </td>
-                      <td className="py-4 px-6 whitespace-nowrap">
+                      <td className="py-4 px-6 text-center whitespace-nowrap">
                         {result.exercises?.title || '-'}
-                      </td>
-                      <td className="py-4 px-6 whitespace-nowrap font-medium text-white/90">
-                        {result.accuracy}%
                       </td>
                     </tr>
                   ))}

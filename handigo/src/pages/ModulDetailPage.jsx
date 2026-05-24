@@ -71,7 +71,7 @@ const ModulDetailPage = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-6 pb-20">
+    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-20 pb-6">
       <Container>
 
         {/* BACK */}
@@ -84,12 +84,23 @@ const ModulDetailPage = () => {
           </button>
         </div>
 
-        {/* COVER */}
-        <div className="w-full h-32 sm:h-40 md:h-52 bg-light-blue rounded-2xl flex items-center justify-center mb-6">
-          <div className="w-16 h-16 bg-gray-300 rounded-lg flex items-center justify-center text-gray-600">
-            <Camera size={32} />
-          </div>
-        </div>
+{/* COVER */}
+<div className="w-full h-32 bg-gray-200 rounded-2xl overflow-hidden">
+  {module.image_url ? (
+    <img
+      src={module.image_url}
+      alt={module.title}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center">
+      <span className="text-4xl font-bold text-gray-400">
+        {module.title?.charAt(0).toUpperCase()}
+      </span>
+    </div>
+  )}
+</div>
 
         {/* META */}
         <div className="flex flex-wrap gap-2 mb-3">
@@ -172,7 +183,7 @@ const ExerciseCard = ({ exercise, moduleId, user }) => {
   };
 
   return (
-    <div className="rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-light-blue shadow-sm hover:-translate-y-1 transition">
+    <div className="rounded-2xl p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-light-blue shadow-sm hover:-translate-y-1 transition">
 
       {/* LEFT */}
       <div className="flex items-center gap-4">

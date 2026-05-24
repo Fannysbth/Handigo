@@ -25,7 +25,6 @@ const HomePage = () => {
   return (
     <div className="bg-white text-gray-800 antialiased w-full">
       <Hero />
-      <Stats />
       <FeatureGrid />
       <ModulePreview />
       <Cta />

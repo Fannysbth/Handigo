@@ -64,11 +64,22 @@ const ModulePreview = () => {
               onClick={() => handleModuleClick(module)}
               className="bg-light-blue rounded-2xl p-6 cursor-pointer hover:shadow-lg hover:-translate-y-2 transition-all duration-300"
             >
-              <div className="w-full h-32 bg-gray-200 rounded-xl mb-4 flex items-center justify-center">
-                <span className="text-4xl font-bold text-gray-500">
-                  {module.title.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <div className="w-full h-32 bg-gray-200 rounded-xl mb-4 overflow-hidden">
+  {module.image_url ? (
+    <img
+      src={module.image_url}
+      alt={module.title}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center">
+      <span className="text-4xl font-bold text-gray-500">
+        {module.title?.charAt(0).toUpperCase()}
+      </span>
+    </div>
+  )}
+</div>
               
               <h3 className="text-xl font-semibold text-primary-blue mb-2">
                 {module.title}

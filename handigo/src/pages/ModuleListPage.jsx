@@ -109,7 +109,7 @@ const ModuleListPage = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-6 pb-20">
+    <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-20 pb-6">
       <Container>
 
         {/* BACK */}
@@ -122,18 +122,7 @@ const ModuleListPage = () => {
           </button>
         </div>
 
-        {/* SEARCH */}
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between mb-8">
-          <div className="w-full lg:w-[300px] relative">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari modul..."
-              className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
-            />
-          </div>
-        </div>
+        
 
         {/* GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -164,16 +153,22 @@ const ModuleCard = ({ module, progress, user }) => {
     <div className="rounded-3xl p-5 flex flex-col gap-4 bg-light-blue shadow-sm hover:shadow-md transition">
 
       {/* IMAGE */}
-      <div className="w-full h-32 bg-gray-200 rounded-2xl relative">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-4xl font-bold text-gray-400">
-            {title.charAt(0).toUpperCase()}
-          </span>
-        </div>
-        <div className="absolute bottom-0 w-full text-center bg-black text-white text-xs py-1">
-          Modul {id}
-        </div>
-      </div>
+      <div className="w-full h-32 bg-gray-200 rounded-2xl overflow-hidden">
+  {module.image_url ? (
+    <img
+      src={module.image_url}
+      alt={title}
+      className="w-full h-full object-cover"
+      loading="lazy"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center">
+      <span className="text-4xl font-bold text-gray-400">
+        {title.charAt(0).toUpperCase()}
+      </span>
+    </div>
+  )}
+</div>
 
       {/* TITLE */}
       <div>
@@ -189,26 +184,14 @@ const ModuleCard = ({ module, progress, user }) => {
         </p>
       </div>
 
-      {/* PROGRESS (ONLY VISUAL) */}
-      <div>
-        <div className="w-full h-2 bg-gray-200 rounded-full">
-          <div
-            className="h-2 bg-primary-blue rounded-full"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        <p className="text-[10px] text-gray-500 mt-1">
-          {Math.round(progressPct)}% — {completedExercises}/{total_exercises}
-        </p>
-      </div>
+      
 
       {/* BUTTON (NO LOCK ANYMORE) */}
       <button
         onClick={() => navigate(`/modul/${id}`)}
         className="w-full bg-primary-blue text-white text-sm py-2 rounded-full hover:bg-primary-hover transition"
       >
-        {progressPct > 0 ? "Lanjutkan" : "Mulai"}
+        Lihat Modul
       </button>
     </div>
   );
