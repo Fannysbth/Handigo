@@ -27,9 +27,24 @@ console.log('profileRoutes:', typeof profileRoutes);
 console.log('detectionRoutes:', typeof detectionRoutes);
 app.use(express.json());
 
+const allowedOrigins = [
+  'http://localhost:5173', // Untuk kamu ngoding di lokal
+  'https://agreeable-forest-004905c00.7.azurestaticapps.net' ,
+  'handigo-five.vercel.app'// Untuk production
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true // PENTING biar cookie kebaca
+  origin: function (origin, callback) {
+    // Izinkan request tanpa origin (seperti Postman atau mobile apps)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Blocked by CORS policy'));
+    }
+  },
+  credentials: true
 }));
 app.use(cookieParser());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
