@@ -62,24 +62,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const googleLoginHandler = async (credential) => {
-    try {
-      // response Google login BE: { needProfile, email, full_name?, user? }
-      const result = await googleLogin(credential);
+  // AuthContext.jsx
 
-      if (!result.needProfile) {
-        const userData = await getMe();
-        setUser(userData);
-        return { ...result, email: result.user?.email };
-      }
+const googleLoginHandler = async (credential) => {
+  try {
+    const result = await googleLogin(credential);
+    // result: { needProfile: true, email, full_name, avatar_url }
+    //      atau { needProfile: false, user: {...} }
 
-      return result;
-    } catch (err) {
-      toast.error(err.message || 'Gagal login dengan Google');
-      throw err;
+    if (!result.needProfile) {
+      const userData = await getMe();
+      setUser(userData);
     }
-  };
 
+    return result; // teruskan apa adanya, LoginPage yang handle routing
+  } catch (err) {
+    toast.error(err.message || 'Gagal login dengan Google');
+    throw err;
+  }
+};
+
+const completeProfile = async (email, password, full_name) => {
+  try {
+    await completeProfileAPI(email, password, full_name);
+    // BE sudah set cookie, langsung ambil user
+    const userData = await getMe();
+    setUser(userData);
+    // Tidak toast di sini — biarkan halaman yang memanggil yang toast
+  } catch (err) {
+    // Lempar ke pemanggil agar bisa handle sendiri
+    throw err;
+  }
+};
 
   const logout = async () => {
     try {
@@ -99,18 +113,6 @@ export const AuthProvider = ({ children }) => {
       setUser(updated);
       toast.success('Profil berhasil diperbarui');
       return true;
-    } catch (err) {
-      toast.error(err.message || 'Gagal memperbarui profil');
-      throw err;
-    }
-  };
-
-  const completeProfile = async (email, password, full_name) => {
-    try {
-      await completeProfileAPI(email, password, full_name);
-      const userData = await getMe();
-      setUser(userData);
-      toast.success('Profil berhasil diperbarui');
     } catch (err) {
       toast.error(err.message || 'Gagal memperbarui profil');
       throw err;

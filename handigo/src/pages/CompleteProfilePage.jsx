@@ -15,33 +15,33 @@ const CompleteProfilePage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // CompleteProfilePage.jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!email || !full_name) {
-      toast.error('Data login Google tidak lengkap. Silakan coba login ulang.');
-      navigate('/login');
-      return;
-    }
+  if (!email || !full_name) {
+    toast.error('Data login Google tidak lengkap. Silakan coba login ulang.');
+    navigate('/login');
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      toast.error('Password tidak cocok');
-      return;
-    }
+  if (password !== confirmPassword) {
+    toast.error('Password tidak cocok');
+    return;
+  }
 
-    setIsSubmitting(true);
-    try {
-      await completeProfile(email, password, full_name);
-      // BE complete-profile belum meng-issue cookie login, jadi FE kita tetap arahkan login.
-      toast.success('Profil lengkap! Silakan login.');
-      navigate('/login');
-    } catch (err) {
-      toast.error(err?.message || 'Gagal lengkapi profile');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  setIsSubmitting(true);
+  try {
+    await completeProfile(email, password, full_name);
+    // BE sudah set cookie + login otomatis, AuthContext.completeProfile sudah setUser
+    toast.success('Profil lengkap! Selamat datang 🎉');
+    navigate('/dashboard');          // ← bukan /login
+  } catch (err) {
+    toast.error(err?.message || 'Gagal lengkapi profile');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <div className="flex-1 flex flex-col bg-gray-100 py-12 md:py-20">
       <Container className="flex-1 flex items-center justify-center h-full">

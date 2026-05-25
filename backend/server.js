@@ -27,11 +27,11 @@ console.log('profileRoutes:', typeof profileRoutes);
 console.log('detectionRoutes:', typeof detectionRoutes);
 app.use(express.json());
 
-app.use(cookieParser());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true // PENTING biar cookie kebaca
 }));
+app.use(cookieParser());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Routes
 app.use('/api/auth', authRoutes);

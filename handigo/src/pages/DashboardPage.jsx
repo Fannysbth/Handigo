@@ -85,35 +85,28 @@ const DashboardPage = () => {
   }, [user, authLoading]);
 
   const generateWeekData = (results) => {
-    const days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-    const today = new Date();
-    const weekData = [];
+  const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+  const today = new Date();
+  const weekData = [];
 
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
 
-      const dayResults = results.filter((r) =>
-        r.created_at.startsWith(dateStr)
-      );
+    const dateStr = date.toISOString().split('T')[0];
 
-      const accuracy =
-        dayResults.length > 0
-          ? Math.round(
-              dayResults.reduce((sum, r) => sum + r.accuracy, 0) /
-                dayResults.length
-            )
-          : 0;
+    const dayResults = results.filter((r) =>
+      r.created_at.startsWith(dateStr)
+    );
 
-      weekData.push({
-        day: days[date.getDay()],
-        accuracy: accuracy || 5, // Min 5% untuk visibility
-      });
-    }
+    weekData.push({
+      day: days[date.getDay()],
+      count: dayResults.length,
+    });
+  }
 
-    return weekData;
-  };
+  return weekData;
+};
 
   if (authLoading || loading)
     return <LoadingSpinner text="Memuat dashboard..." />;
@@ -177,13 +170,24 @@ const DashboardPage = () => {
                   key={i}
                   className="flex flex-col items-center justify-end h-full gap-2 w-full"
                 >
-                  <div
-                    className="bg-primary-blue w-full max-w-[32px] rounded-t-md transition-all duration-500"
-                    style={{ height: `${item.accuracy}%` }}
-                  />
-                  <span className="text-xs text-gray-700 font-medium">
-                    {item.day}
-                  </span>
+                  {/* JUMLAH LATIHAN */}
+<span className="text-xs sm:text-sm font-semibold text-primary-blue">
+  {item.count}
+</span>
+
+{/* BAR */}
+<div
+  className="bg-primary-blue w-full max-w-[32px] rounded-t-md transition-all duration-500"
+  style={{
+    height: `${Math.max(item.count * 25, item.count > 0 ? 20 : 5)}px`,
+  }}
+/>
+
+{/* HARI */}
+<span className="text-xs text-gray-700 font-medium">
+  {item.day}
+</span>
+                 
                 </div>
               ))}
             </div>

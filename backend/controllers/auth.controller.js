@@ -224,10 +224,27 @@ async function googleLogin(req, res) {
       });
     }
 
-    // 🔥 3. kalau ada → login sukses
-    // (Tidak set cookie karena FE akan menganggap sudah login via /auth/me,
-    // tapi /auth/google memang belum membuat cookie.
-    // Setelah FE complete-profile, BE akan login dan set cookie.)
+    // 🔥 3. kalau ada → buat session Supabase agar cookie ter-set
+    // FE sebelumnya mengandalkan /auth/me, jadi /auth/google harus set cookie juga.
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: credential,
+    });
+
+    if (loginError || !loginData?.session) {
+      return res.status(401).json({
+        error: 'Gagal membuat session dari Google',
+        detail: loginError?.message || 'Missing session',
+      });
+    }
+
+    res.cookie('access_token', loginData.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.json({
       needProfile: false,
       user: profile,

@@ -18,10 +18,15 @@ export default defineConfig({
   },
 
   server: {
-    headers: {
-      // Required for WebAssembly (WASM) to run
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'credentialless',
-    },
+  headers: {
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'credentialless',
   },
+  proxy: {
+    '/api': {
+      target: 'http://localhost:5000',
+      changeOrigin: true,
+    }
+  }
+},
 })
