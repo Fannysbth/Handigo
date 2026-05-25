@@ -30,7 +30,7 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:5173', // Untuk kamu ngoding di lokal
   'https://agreeable-forest-004905c00.7.azurestaticapps.net' ,
-  'handigo-five.vercel.app'// Untuk production
+  'htps://handigo-five.vercel.app'// Untuk production
 ];
 
 app.use(cors({
