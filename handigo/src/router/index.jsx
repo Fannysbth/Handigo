@@ -20,6 +20,7 @@ import ModuleListPage from '@/pages/ModuleListPage';
 import ResultPage from '@/pages/ResultPage';
 import LatihanPageWithONNX from '@/pages/LatihanPageWithONNX';
 import CVTestPage from '@/pages/CVTestPage';
+import CompleteProfilePage from '@/pages/CompleteProfilePage';
 
 const router = createBrowserRouter([
   {
@@ -52,6 +53,10 @@ const router = createBrowserRouter([
       {
         path: '/register',
         element: <RegisterPage />,
+      },
+            {
+        path: '/complete-profile',
+        element: <CompleteProfilePage />,
       },
       {
         element: <ProtectedRoute redirectTo="/modul" message="Silakan login untuk mengakses latihan" />,

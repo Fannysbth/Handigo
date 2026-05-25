@@ -156,7 +156,7 @@ const RegisterPage = () => {
               placeholder="Masukkan password (min 6 karakter)"
               className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue pr-10"
               required
-              minLength={6}
+              /* minLength={6} DIHAPUS AGAR DI-VALIDASI OLEH JAVASCRIPT & MENAMPILKAN TOAST EROR */
             />
             <button
               type="button"
