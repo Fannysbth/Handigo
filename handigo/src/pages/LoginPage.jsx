@@ -18,60 +18,47 @@ const LoginPage = () => {
   // 1. TANGKAP TOKEN SETELAH KEMBALI DARI GOOGLE
   // ==========================================
   useEffect(() => {
-    // Google akan melempar token di URL dengan format: #id_token=...
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const idToken = params.get('id_token');
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const idToken = params.get('id_token');
 
-    if (idToken) {
-      // Bersihkan URL dari token yang panjang agar rapi dilihat user
-      window.history.replaceState(null, null, window.location.pathname);
+  if (!idToken) return;
 
-      // Proses token ke backend kamu
-      googleLogin(idToken).then((result) => {
-        if (result.needProfile) {
-          navigate('/complete-profile', {
-            state: { email: result.email, full_name: result.full_name },
-          });
-        } else {
-          toast.success('Login dengan Google berhasil!');
-          navigate('/dashboard');
-        }
-      })// Di dalam LoginPage.jsx
-googleLogin(idToken).then((result) => {
-  // Tambahkan console.log ini untuk mengintip struktur asli data dari backend
-  console.log("Hasil dari backend Google Login:", result);
+  // bersihkan URL
+  window.history.replaceState(null, null, window.location.pathname);
 
-  if (result?.needProfile) {
-    // Ambil dari result.user (sesuai struktur res.json backend kamu)
-    const emailData = result.user?.email;
-    const nameData = result.user?.full_name;
+  const handleGoogle = async () => {
+    try {
+      const result = await googleLogin(idToken);
 
-    if (!emailData || !nameData) {
-      toast.error('Gagal mengambil data profil dari Google.');
-      return;
+      console.log("Hasil backend:", result);
+
+      if (result?.needProfile) {
+        navigate('/complete-profile', {
+          state: {
+            email: result.user?.email,
+            full_name: result.user?.full_name,
+          },
+        });
+      } else {
+        toast.success('Login dengan Google berhasil!');
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal login Google');
     }
+  };
 
-    navigate('/complete-profile', {
-      state: { email: emailData, full_name: nameData },
-    });
-  } else {
-    toast.success('Login dengan Google berhasil!');
-    navigate('/dashboard');
-  }
-}).catch((err) => {
-  console.error(err);
-  toast.error('Gagal memproses login Google dari backend');
-});
-    }
-  }, [googleLogin, navigate]);
+  handleGoogle();
+}, [googleLogin, navigate]);
 
   // ==========================================
   // 2. FUNGSI REDIRECT KE HALAMAN LOGIN GOOGLE
   // ==========================================
   const handleGoogleRedirect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = 'http://localhost:5173/login'; // Halaman ini sendiri
+    const redirectUri = 'https://handigo-five.vercel.app/login'; // Halaman ini sendiri
     const scope = 'email profile openid';
     const responseType = 'id_token';
     const nonce = Math.random().toString(36).substring(2); // Wajib untuk keamanan token
