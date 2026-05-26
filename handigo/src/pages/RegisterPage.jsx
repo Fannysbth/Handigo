@@ -68,7 +68,7 @@ const RegisterPage = () => {
   // ==========================================
   const handleGoogleRedirect = () => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    const redirectUri = 'http://localhost:5173/login'; // Pertimbangkan mengganti ini ke /register atau /auth/callback tergantung setup Anda
+    const redirectUri = 'https://handigo-five.vercel.app/login'; // Pertimbangkan mengganti ini ke /register atau /auth/callback tergantung setup Anda
     const scope = 'email profile openid';
     const responseType = 'id_token';
     const nonce = Math.random().toString(36).substring(2);
