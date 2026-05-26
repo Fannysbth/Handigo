@@ -367,7 +367,7 @@ const LatihanPage = () => {
           </button>
         </div>
 
-        {/* FOOTER TIPS */}
+        {/* FOOTER TIPS */} 
         <div className="flex items-start gap-2.5 text-xs text-gray-400 max-w-lg mx-auto bg-gray-50 p-3 rounded-xl border border-gray-100">
           <Lightbulb size={16} className="text-amber-500 shrink-0 mt-0.5" />
           <p className="leading-normal">

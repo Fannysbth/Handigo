@@ -3,11 +3,17 @@ import { Link, useNavigate } from "react-router-dom";
 import Container from '@/components/Container';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { registerUser, googleLogin } from '../lib/api';
+// 1. Hapus googleLogin dari sini jika menggunakan yang dari context
+import { registerUser } from '../lib/api'; 
+// 2. Import useAuth dari file context Anda (sesuaikan path-nya!)
+import { useAuth } from '../context/AuthContext'; 
 
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  // 3. useAuth sekarang sudah bisa digunakan
+  const { login, googleLogin } = useAuth(); 
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -17,46 +23,59 @@ const RegisterPage = () => {
 
   const navigate = useNavigate();
 
-  // Load Google Identity Services script
+  // ==========================================
+  // 1. TANGKAP TOKEN SETELAH KEMBALI DARI GOOGLE
+  // ==========================================
   useEffect(() => {
-    const loadGoogleScript = () => {
-      if (window.google) return; // Already loaded
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const idToken = params.get('id_token');
 
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
+    if (idToken) {
+      // Bersihkan URL dari token
+      window.history.replaceState(null, null, window.location.pathname);
 
-      script.onload = () => {
-        // Initialize Google Sign-In
-        window.google.accounts.id.initialize({
-          client_id: process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID', // Ganti dengan client ID Anda
-          callback: handleGoogleCallback,
-        });
-      };
-    };
+      // 4. Blok copy-paste yang berantakan sudah diperbaiki menjadi satu logika yang rapi
+      googleLogin(idToken).then((result) => {
+        console.log("Hasil dari backend Google Login:", result);
 
-    loadGoogleScript();
-  }, []);
+        if (result?.needProfile) {
+          // Sesuaikan dengan struktur response dari backend Anda
+          const emailData = result.user?.email || result.email;
+          const nameData = result.user?.full_name || result.full_name;
 
-  const handleGoogleCallback = async (response) => {
-    try {
-      const result = await googleLogin(response.credential);
-      
-      if (result.needProfile) {
-        // Redirect ke halaman lengkapi profile
-        navigate('/complete-profile', { 
-          state: { email: result.email, full_name: result.full_name } 
-        });
-      } else {
-        // Login sukses
-        toast.success('Login dengan Google berhasil!');
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      toast.error('Gagal login dengan Google');
+          if (!emailData || !nameData) {
+            toast.error('Gagal mengambil data profil dari Google.');
+            return;
+          }
+
+          navigate('/complete-profile', {
+            state: { email: emailData, full_name: nameData },
+          });
+        } else {
+          toast.success('Login dengan Google berhasil!');
+          navigate('/dashboard');
+        }
+      }).catch((err) => {
+        console.error(err);
+        toast.error('Gagal memproses login Google dari backend');
+      });
     }
+  }, [googleLogin, navigate]);
+
+  // ==========================================
+  // 2. FUNGSI REDIRECT KE HALAMAN LOGIN GOOGLE
+  // ==========================================
+  const handleGoogleRedirect = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const redirectUri = 'http://localhost:5173/login'; // Pertimbangkan mengganti ini ke /register atau /auth/callback tergantung setup Anda
+    const scope = 'email profile openid';
+    const responseType = 'id_token';
+    const nonce = Math.random().toString(36).substring(2);
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=${responseType}&scope=${encodeURIComponent(scope)}&nonce=${nonce}`;
+
+    window.location.href = googleAuthUrl;
   };
 
   const handleRegister = async (e) => {
@@ -86,19 +105,6 @@ const RegisterPage = () => {
       toast.error(error.message || 'Gagal registrasi. Coba lagi.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      if (window.google && window.google.accounts) {
-        window.google.accounts.id.prompt(); // Show Google Sign-In prompt
-      } else {
-        toast.error('Google login belum siap. Coba lagi nanti.');
-      }
-    } catch (error) {
-      console.error('Google login error:', error);
-      toast.error('Gagal login dengan Google');
     }
   };
 
@@ -156,7 +162,6 @@ const RegisterPage = () => {
               placeholder="Masukkan password (min 6 karakter)"
               className="w-full mt-1 px-4 py-2 rounded-full bg-white shadow-sm outline-none focus:ring-2 focus:ring-primary-blue pr-10"
               required
-              /* minLength={6} DIHAPUS AGAR DI-VALIDASI OLEH JAVASCRIPT & MENAMPILKAN TOAST EROR */
             />
             <button
               type="button"
@@ -212,13 +217,16 @@ const RegisterPage = () => {
           </Link>
 
           {/* GOOGLE */}
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="bg-primary-blue text-white py-2 rounded-full flex items-center justify-center gap-2 hover:bg-primary-hover hover:scale-105 active:scale-95 transition-all"
-          >
-            <span className="text-lg">G</span> Google
-          </button>
+          <div className="w-full mt-3">
+              <button
+                type="button"
+                onClick={handleGoogleRedirect}
+                className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 py-2 rounded-full font-semibold hover:bg-gray-50 transition-all shadow-sm"
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
+                Lanjutkan dengan Google
+              </button>
+            </div>
 
         </form>
       </div>
