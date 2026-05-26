@@ -95,27 +95,34 @@ export const AuthProvider = ({ children }) => {
    * =========================
    */
   const googleLoginHandler = async (credential) => {
-  try {
-    const response = await googleLogin(credential);
+    try {
+      /**
+       * response:
+       * {
+       *   needProfile: true/false,
+       *   user: {...}
+       * }
+       */
+      const response = await googleLogin(credential);
 
-    // Kalau user SUDAH punya password / tidak butuh lengkapi profil
-    if (!response.needProfile) {
-      // SOLUSI: Langsung pakai data user dari response backend, 
-      // tidak perlu nembak getMe() lagi yang bikin error 401.
-      if (response.user) {
-        setUser(response.user);
+      // Kalau user SUDAH punya password
+      // langsung login
+      if (!response.needProfile) {
+        const me = await getMe();
+
+        setUser(me.user);
+
+        toast.success('Login Google berhasil!');
       }
-      toast.success('Login Google berhasil!');
+
+      // teruskan response ke LoginPage
+      return response;
+
+    } catch (err) {
+      toast.error(err.message || 'Gagal login dengan Google');
+      throw err;
     }
-
-    // teruskan response ke LoginPage
-    return response;
-
-  } catch (err) {
-    toast.error(err.message || 'Gagal login dengan Google');
-    throw err;
-  }
-};
+  };
 
   /**
    * =========================
