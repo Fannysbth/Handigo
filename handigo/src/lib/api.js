@@ -1,12 +1,7 @@
 import { apiFetch } from './http';
 
 // WAJIB ADA DI BARIS PALING ATAS
-import axios from 'axios'; 
 
-const api = axios.create({
-  baseURL: 'https://handigo-be-aybwazffcmgxdcf2.southeastasia-01.azurewebsites.net/api',
-  withCredentials: true 
-});
 /**
  * =========================
  * MODULES
