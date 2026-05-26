@@ -23,17 +23,13 @@ const CompleteProfilePage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // ==========================================
-  // PROTEKSI HALAMAN: JIKA KOSONG, KEMBALI KE LOGIN
-  // ==========================================
   useEffect(() => {
     if (!email || !full_name) {
-      toast.error('Data Google tidak ditemukan. Silakan login ulang.');
-      navigate('/login', { replace: true }); // replace: true agar tidak bisa di-back
+      toast.error('Data login tidak ditemukan, silakan login kembali.');
+      navigate('/login', { replace: true });
     }
   }, [email, full_name, navigate]);
 
-  // Cegah render form jika data masih kosong (menunggu proses redirect)
   if (!email || !full_name) {
     return null; 
   }
@@ -49,6 +45,11 @@ const CompleteProfilePage = () => {
     setIsSubmitting(true);
     try {
       await completeProfile(email, password, full_name);
+      
+      // HAPUS DATA SEMENTARA SETELAH SUKSES
+      sessionStorage.removeItem('temp_email');
+      sessionStorage.removeItem('temp_fullname');
+      
       toast.success('Profil lengkap! Selamat datang 🎉');
       navigate('/dashboard'); 
     } catch (err) {
@@ -57,6 +58,7 @@ const CompleteProfilePage = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="flex-1 flex flex-col bg-gray-100 py-12 md:py-20">
