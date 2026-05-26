@@ -1,155 +1,128 @@
 import * as ort from 'onnxruntime-web';
 
-const COCO_CLASSES = [
-  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
-  'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
-  'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-  'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis',
-  'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
-  'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass', 'cup',
-  'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange',
-  'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
-  'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
-  'remote', 'keyboard', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator',
-  'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-];
+// Konfigurasi onnxruntime agar menggunakan WebGL atau WASM dengan optimal
+ort.env.wasm.numThreads = 2;
 
-let session = null;
-
-export const loadONNXModel = async (modelPath) => {
+/**
+ * Memuat model ONNX secara asinkron
+ * @param {string} modelPath 
+ */
+export const loadModel = async (modelPath) => {
   try {
-    session = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm'],
+    const session = await ort.InferenceSession.create(modelPath, {
+      executionProviders: ['webgl', 'wasm'],
     });
-    console.log('ONNX model loaded successfully');
     return session;
-  } catch (err) {
-    console.error('Failed to load ONNX model:', err);
-    throw err;
+  } catch (error) {
+    console.error('Gagal memuat session ONNX:', error);
+    throw error;
   }
 };
 
-export const preprocessImage = (canvas, inputSize = 640) => {
+/**
+ * Preprocessing & Menjalankan Inferece YOLOv8
+ * @param {ort.InferenceSession} session 
+ * @param {HTMLVideoElement} videoElement 
+ * @param {number} threshold 
+ * @param {Array<string>} labels 
+ */
+export const runInference = async (session, videoElement, threshold = 0.5, labels = []) => {
+  if (!session || !videoElement || videoElement.readyState < 2) return [];
+
+  const modelWidth = 640;
+  const modelHeight = 640;
+
+  // 1. Preprocessing via Temporary Canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = modelWidth;
+  canvas.height = modelHeight;
   const ctx = canvas.getContext('2d');
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
+  ctx.drawImage(videoElement, 0, 0, modelWidth, modelHeight);
 
-  canvas.width = inputSize;
-  canvas.height = inputSize;
+  const imgData = ctx.getImageData(0, 0, modelWidth, modelHeight);
+  const { data } = imgData;
 
-  const normalized = new Float32Array(inputSize * inputSize * 3);
+  // Mengubah format RGBA ke Float32Array Planar (CHW) & Normalisasi 0-1
+  const floatBuffer = new Float32Array(modelWidth * modelHeight * 3);
+  let rIndex = 0;
+  let gIndex = modelWidth * modelHeight;
+  let bIndex = modelWidth * modelHeight * 2;
+
   for (let i = 0; i < data.length; i += 4) {
-    const idx = i / 4;
-    normalized[idx] = data[i] / 255.0;
-    normalized[idx + inputSize * inputSize] = data[i + 1] / 255.0;
-    normalized[idx + 2 * inputSize * inputSize] = data[i + 2] / 255.0;
+    floatBuffer[rIndex++] = data[i] / 255.0;     // R
+    floatBuffer[gIndex++] = data[i + 1] / 255.0; // G
+    floatBuffer[bIndex++] = data[i + 2] / 255.0; // B
   }
 
-  return new ort.Tensor('float32', normalized, [1, 3, inputSize, inputSize]);
-};
+  // 2. Jalankan Inference
+  const inputTensor = new ort.Tensor('float32', floatBuffer, [1, 3, modelWidth, modelHeight]);
+  const outputs = await session.run({ [session.inputNames[0]]: inputTensor });
+  const outputTensor = outputs[session.outputNames[0]];
+  
+  // 3. Postprocessing (YOLOv8 Output format: [1, 4 + num_classes, 8400])
+  const dims = outputTensor.dims;
+  const numElements = dims[1]; // 4 koordinat + jumlah kelas
+  const numBoxes = dims[2];    // 8400 prediktor pratinjau
+  const outputData = outputTensor.data;
 
-export const runInference = async (imageData, inputSize = 640) => {
-  if (!session) {
-    throw new Error('Model not loaded. Call loadONNXModel first.');
-  }
-  try {
-    const feeds = { images: imageData };
-    const results = await session.run(feeds);
-    return results;
-  } catch (err) {
-    console.error('Inference error:', err);
-    throw err;
-  }
-};
+  let candidates = [];
 
-export const postprocessOutput = (
-  output,
-  originalWidth,
-  originalHeight,
-  confidenceThreshold = 0.5
-) => {
-  // FIX: output sudah tensor langsung, bukan { output0: tensor }
-  const tensor = output;
-  const data = tensor.data;
-  const dims = tensor.dims; // [1, 30, 8400]
+  for (let boxIdx = 0; boxIdx < numBoxes; boxIdx++) {
+    // Cari kelas dengan skor tertinggi untuk box ini
+    let maxScore = 0;
+    let classId = -1;
 
-  const featuresFirst = dims[1] < dims[2];
-  const numFeatures = featuresFirst ? dims[1] : dims[2];
-  const numBoxes    = featuresFirst ? dims[2] : dims[1];
-  const numClasses  = numFeatures - 4;
-
-  const detections = [];
-
-  for (let i = 0; i < numBoxes; i++) {
-    let cx, cy, w, h;
-    const classScores = [];
-
-    if (featuresFirst) {
-      cx = data[0 * numBoxes + i];
-      cy = data[1 * numBoxes + i];
-      w  = data[2 * numBoxes + i];
-      h  = data[3 * numBoxes + i];
-      for (let c = 0; c < numClasses; c++) {
-        classScores[c] = data[(4 + c) * numBoxes + i];
-      }
-    } else {
-      const offset = i * numFeatures;
-      cx = data[offset];
-      cy = data[offset + 1];
-      w  = data[offset + 2];
-      h  = data[offset + 3];
-      for (let c = 0; c < numClasses; c++) {
-        classScores[c] = data[offset + 4 + c];
+    for (let classIdx = 4; classIdx < numElements; classIdx++) {
+      const score = outputData[classIdx * numBoxes + boxIdx];
+      if (score > maxScore) {
+        maxScore = score;
+        classId = classIdx - 4;
       }
     }
 
-    let maxScore = -Infinity;
-    let classId = 0;
-    for (let c = 0; c < numClasses; c++) {
-      if (classScores[c] > maxScore) {
-        maxScore = classScores[c];
-        classId = c;
-      }
+    if (maxScore >= threshold) {
+      // Ambil koordinat pusat (normalized/pixel space sesuai resolusi model 640)
+      const cx = outputData[0 * numBoxes + boxIdx];
+      const cy = outputData[1 * numBoxes + boxIdx];
+      const w = outputData[2 * numBoxes + boxIdx];
+      const h = outputData[3 * numBoxes + boxIdx];
+
+      // Konversi ke format x_min, y_min, width, height
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+
+      candidates.push({
+        box: [x, y, w, h],
+        confidence: maxScore,
+        classId: classId,
+        className: labels[classId] || `Kelas ${classId}`
+      });
     }
-
-    if (maxScore < confidenceThreshold) continue;
-
-    detections.push({
-      x:          ((cx - w / 2) / 640) * originalWidth,
-      y:          ((cy - h / 2) / 640) * originalHeight,
-      width:      (w / 640) * originalWidth,
-      height:     (h / 640) * originalHeight,
-      confidence: maxScore,
-      classId,
-      className:  String.fromCharCode(65 + classId), // 0=A, 1=B, dst
-    });
   }
 
-  return nms(detections, 0.45);
+  // 4. Non-Maximum Suppression (NMS) Sederhana untuk menyaring kotak bertumpuk
+  candidates.sort((a, b) => b.confidence - a.confidence);
+  const result = [];
+  const nmsThreshold = 0.45;
+
+  const calculateIoU = (boxA, boxB) => {
+    const xA = Math.max(boxA[0], boxB[0]);
+    const yA = Math.max(boxA[1], boxB[1]);
+    const xB = Math.min(boxA[0] + boxA[2], boxB[0] + boxB[2]);
+    const yB = Math.min(boxA[1] + boxA[3], boxB[1] + boxB[3]);
+
+    const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+    const boxAArea = boxA[2] * boxA[3];
+    const boxBArea = boxB[2] * boxB[3];
+
+    return interArea / (boxAArea + boxBArea - interArea);
+  };
+
+  while (candidates.length > 0) {
+    const best = candidates.shift();
+    result.push(best);
+    candidates = candidates.filter(item => calculateIoU(best.box, item.box) < nmsThreshold);
+  }
+
+  return result;
 };
-
-function iou(a, b) {
-  const x1 = Math.max(a.x, b.x);
-  const y1 = Math.max(a.y, b.y);
-  const x2 = Math.min(a.x + a.width,  b.x + b.width);
-  const y2 = Math.min(a.y + a.height, b.y + b.height);
-  const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  const union = a.width * a.height + b.width * b.height - inter;
-  return union > 0 ? inter / union : 0;
-}
-
-function nms(dets, iouThr) {
-  const sorted = [...dets].sort((a, b) => b.confidence - a.confidence);
-  const kept = [];
-  const seen = new Set();
-  for (let i = 0; i < sorted.length; i++) {
-    if (seen.has(i)) continue;
-    kept.push(sorted[i]);
-    for (let j = i + 1; j < sorted.length; j++) {
-      if (iou(sorted[i], sorted[j]) > iouThr) seen.add(j);
-    }
-  }
-  return kept;
-}
-
-export { COCO_CLASSES };

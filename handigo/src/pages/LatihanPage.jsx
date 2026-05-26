@@ -21,7 +21,6 @@ const LatihanPage = () => {
   const { id } = useParams();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const [liveDetections, setLiveDetections] = useState([]);
 
   const [exercise, setExercise] = useState(null);
   const [allExercises, setAllExercises] = useState([]);
@@ -34,48 +33,72 @@ const LatihanPage = () => {
   const [isScanning, setIsScanning] = useState(true);
   const [detectionMessage, setDetectionMessage] = useState('Mendeteksi...');
 
-  // Accuracy final untuk 1 sesi latihan
   const [accuracy, setAccuracy] = useState(0);
   const [isDetected, setIsDetected] = useState(false);
 
-  // freeze: akurasi hanya berubah sebelum time habis
   const bestAccuracyRef = useRef(0);
   const detectedAnyRef = useRef(false);
 
   const startTimeRef = useRef(0);
   const timerRef = useRef(null);
 
-  // State untuk carousel referensi gambar
   const [refImageIndex, setRefImageIndex] = useState(0);
 
   const exerciseId = location.state?.exerciseId;
   const exerciseIndex = location.state?.exerciseIndex;
 
-  // Menentukan model ONNX secara dinamis berdasarkan UUID Modul dari URL params
+  // ─── PENCERNAAN PATH MODEL SECARA DINAMIS & AMAN ───────────────────────────
   const modelPath = useMemo(() => {
     if (!id) return '/models/yolov8/best.onnx';
 
-    switch (id) {
-      case 'a1000000-0000-0000-0000-000000000001': // MOD-01: Alfabet
-        return '/models/yolov8/best.onnx'; 
+    const idStr = String(id).toLowerCase();
+    const titleStr = module?.title ? String(module.title).toLowerCase() : '';
 
-      case 'a2000000-0000-0000-0000-000000000002': // MOD-02: Angka
-        return '/models/yolov8/numbers.onnx';
-
-      case 'a3000000-0000-0000-0000-000000000003': // MOD-03: Kosakata Sehari-hari
-        return '/models/yolov8/words.onnx';
-
-      default:
-        // Fallback default model
-        return '/models/yolov8/best.onnx';
+    // Cek Modul Angka (Bisa lewat segmen ID URL, kata kunci ID, atau Judul dari DB)
+    if (
+      idStr === '2' || 
+      idStr.includes('number') || 
+      idStr.includes('angka') ||
+      titleStr.includes('angka') || 
+      titleStr.includes('number')
+    ) {
+      return '/models/yolov8/numbers.onnx';
     }
-  }, [id]);
 
-  // Reset refImageIndex setiap ganti exercise
+    // Cek Modul Kata / Kosakata
+    if (
+      idStr === '3' || 
+      idStr.includes('word') || 
+      idStr.includes('kata') ||
+      titleStr.includes('kata') || 
+      titleStr.includes('kosakata') || 
+      titleStr.includes('word')
+    ) {
+      return '/models/yolov8/words.onnx';
+    }
+
+    // Default Fallback ke Modul 1 (Alfabet)
+    return '/models/yolov8/best.onnx';
+  }, [id, module]);
+
+  // Parsing target_signs dipisah ke useMemo agar tidak merusak siklus re-render
+  const expectedSigns = useMemo(() => {
+    if (!exercise) return [];
+    try {
+      return Array.isArray(exercise.target_signs)
+        ? exercise.target_signs.map(s => String(s).trim())
+        : JSON.parse(exercise.target_signs || '[]').map(s => String(s).trim());
+    } catch (e) {
+      console.error("Gagal mengurai target_signs:", e);
+      return [];
+    }
+  }, [exercise]);
+
   useEffect(() => {
     setRefImageIndex(0);
   }, [exercise?.id]);
 
+  // Memuat seluruh data dari API Backend
   useEffect(() => {
     if (authLoading) return;
 
@@ -89,8 +112,9 @@ const LatihanPage = () => {
         setModule(mod);
         setAllExercises(exs);
 
+        let prog = null;
         if (user) {
-          const prog = await fetchModuleProgress(id);
+          prog = await fetchModuleProgress(id);
           if (!cancelled) setExistingProgress(prog);
         }
 
@@ -102,7 +126,7 @@ const LatihanPage = () => {
           setExercise(ex || exs[0]);
         } else {
           if (user) {
-            const nextIdx = (existingProgress?.completed_exercises || 0) + 1;
+            const nextIdx = (prog?.completed_exercises || 0) + 1;
             const nextEx = exs.find((e) => e.sort_order === nextIdx);
             setExercise(nextEx || exs[0]);
           } else {
@@ -123,10 +147,9 @@ const LatihanPage = () => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, exerciseId, exerciseIndex, authLoading]);
+  }, [id, exerciseId, exerciseIndex, authLoading, user]);
 
-  // timer latihan + freeze
+  // Timer Manajemen Sesi Latihan
   useEffect(() => {
     if (!exercise || !isScanning) return;
 
@@ -144,7 +167,7 @@ const LatihanPage = () => {
       setDetectionMessage(
         detectedAnyRef.current && bestAccuracyRef.current > 0
           ? '✓ Sesi latihan selesai'
-          : '⚠️ Tidak terdeteksi'
+          : '⚠️ Waktu habis, isyarat tidak terdeteksi'
       );
     }, LATIHAN_SECONDS * 1000);
 
@@ -153,16 +176,10 @@ const LatihanPage = () => {
     };
   }, [exercise, isScanning]);
 
+  // Callback penerima koordinat & deteksi dari komponen anak
   const handleDetection = useCallback(
     ({ detections }) => {
-      setLiveDetections(detections || []);
-      if (!exercise) return;
-      if (!isScanning) return;
-
-      // Parse target_signs
-      const expectedSigns = Array.isArray(exercise.target_signs)
-        ? exercise.target_signs
-        : JSON.parse(exercise.target_signs || '[]');
+      if (!exercise || !isScanning) return;
 
       if (!detections || detections.length === 0) {
         setIsDetected(false);
@@ -170,46 +187,38 @@ const LatihanPage = () => {
         return;
       }
 
-      // YOLOv8DetectorONNX pakai field: det.confidence (bukan det.conf)
-      const getConf = (d) => d.confidence ?? d.conf ?? 0;
-
-      // Filter hanya deteksi yang className-nya PERSIS ada di target_signs
+      // Normalisasi nama deteksi dari model agar seragam huruf kapital/spasi
       const matched = detections.filter((d) =>
-        expectedSigns.includes(String(d.className || '').trim())
+        expectedSigns.some(target => target.toLowerCase() === String(d.className || '').trim().toLowerCase())
       );
 
       if (matched.length === 0) {
-        // Ada deteksi tapi bukan target → akurasi 0, TIDAK update bestAccuracyRef
         detectedAnyRef.current = true;
         setIsDetected(false);
         setAccuracy(0);
         const wrongNames = detections.map((d) => d.className).join(', ');
-        setDetectionMessage(`⚠️ Terbaca "${wrongNames}", bukan target`);
+        setDetectionMessage(`⚠️ Terbaca "${wrongNames}", posisikan tangan dengan benar`);
         return;
       }
 
-      // Match ditemukan → ambil confidence tertinggi dari yang match
-      const maxConfidence = Math.max(...matched.map((d) => getConf(d)));
-      // confidence dari detector sudah dalam range 0–1
+      const maxConfidence = Math.max(...matched.map((d) => d.confidence || 0));
       const pct = Math.max(0, Math.min(100, maxConfidence * 100));
 
       detectedAnyRef.current = true;
-      // Hanya update bestAccuracyRef jika lebih tinggi dari sebelumnya
       bestAccuracyRef.current = Math.max(bestAccuracyRef.current, pct);
 
       setIsDetected(true);
       setAccuracy(Math.round(bestAccuracyRef.current));
       setDetectionMessage(
-        `✓ "${matched[0].className}" terdeteksi (${Math.round(pct)}%)`
+        `✓ "${matched[0].className}" terdeteksi sempurna (${Math.round(pct)}%)`
       );
     },
-    [exercise, isScanning]
+    [exercise, isScanning, expectedSigns]
   );
 
   const handleRetry = () => {
     bestAccuracyRef.current = 0;
     detectedAnyRef.current = false;
-
     setAccuracy(0);
     setIsDetected(false);
     setDetectionMessage('Mendeteksi...');
@@ -223,9 +232,7 @@ const LatihanPage = () => {
     setIsProcessing(true);
 
     try {
-      // kalau masih scanning, paksa finalisasi dulu
       let finalAccuracy = accuracy;
-
       if (isScanning) {
         finalAccuracy = Math.round(bestAccuracyRef.current || 0);
       }
@@ -260,30 +267,30 @@ const LatihanPage = () => {
 
     } catch (err) {
       console.error(err);
-      alert('Gagal menyimpan hasil. Coba lagi.');
+      alert('Gagal menyimpan hasil progress. Silakan coba kembali.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  if (authLoading || loading) return <LoadingSpinner text="Memuat latihan..." />;
-  if (!exercise)
+  if (authLoading || loading) return <LoadingSpinner text="Menyiapkan halaman kelas..." />;
+  if (!exercise) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-gray-500">Latihan tidak ditemukan.</p>
+        <p className="text-gray-500">Soal latihan tidak ditemukan.</p>
       </div>
     );
+  }
 
   const currentExIdx = exercise.sort_order;
   const totalEx = module?.total_exercises || allExercises.length;
 
-  // Parse reference_url pintar untuk menangani format PostgreSQL Array String {}
+  // Parser URL gambar referensi pintar
   const referenceUrls = (() => {
     try {
       if (!exercise?.reference_url) return {};
       
       let urlsArray = [];
-      
       if (typeof exercise.reference_url === 'string') {
         if (exercise.reference_url.startsWith('{') && exercise.reference_url.endsWith('}')) {
           const cleanedStr = exercise.reference_url.slice(1, -1);
@@ -300,10 +307,6 @@ const LatihanPage = () => {
         urlsArray = exercise.reference_url;
       }
 
-      const expectedSigns = Array.isArray(exercise.target_signs)
-        ? exercise.target_signs
-        : JSON.parse(exercise.target_signs || '[]');
-
       const mappedObj = {};
       urlsArray.forEach((url, index) => {
         const label = expectedSigns[index] !== undefined ? String(expectedSigns[index]).trim() : `Gbr ${index + 1}`;
@@ -312,7 +315,7 @@ const LatihanPage = () => {
 
       return mappedObj;
     } catch (err) {
-      console.error("Gagal total saat melakukan parse reference_url:", err);
+      console.error("Gagal melakukan parse link gambar referensi:", err);
       return {};
     }
   })();
@@ -323,54 +326,57 @@ const LatihanPage = () => {
   return (
     <div className="flex-1 flex flex-col bg-white text-gray-800 antialiased pt-20 pb-6">
       <Container>
-        {/* TOP BAR */}
+        {/* PROGRESS NAV */}
         <div className="flex items-center justify-between mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
+            className="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
           >
-            ← Kembali
+            ← Kembali ke Modul
           </button>
 
-          <div className="bg-light-blue text-primary-blue text-xs px-3 py-1 rounded-full font-semibold">
-            {currentExIdx}/{totalEx}
+          <div className="bg-light-blue text-primary-blue text-xs px-4 py-1.5 rounded-full font-bold">
+            Soal {currentExIdx} dari {totalEx}
           </div>
         </div>
 
-        {/* INSTRUKSI */}
-        <div className="bg-light-blue rounded-2xl p-4 sm:p-6 text-center mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-primary-blue mb-2">
-            Instruksi
+        {/* AREA INSTRUKSI */}
+        <div className="bg-light-blue rounded-2xl p-5 sm:p-6 text-center mb-6 shadow-sm">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-primary-blue mb-2 tracking-tight">
+            Target: {exercise.title}
           </h1>
-
-          <p className="text-gray-600 text-sm max-w-xl mx-auto">
+          <p className="text-blue-600 font-bold mb-3 text-base tracking-wide bg-white/60 inline-block px-4 py-1 rounded-full">
+            {detectionMessage}
+          </p>
+          <p className="text-gray-600 text-sm max-w-xl mx-auto leading-relaxed">
             {exercise.instruction ||
-              `Tunjukkan isyarat untuk ${exercise.title}. Posisikan tanganmu di dalam bingkai kamera dan tahan selama ${LATIHAN_SECONDS} detik.`}
+              `Arahkan tangan Anda ke kamera dan peragakan simbol bahasa isyarat yang tepat.`}
           </p>
         </div>
 
-        {/* REFERENSI & KAMERA */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-10">
+        {/* KONTEN UTAMA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* SISI KIRI: REFERENSI */}
           <div>
-            <p className="text-sm font-semibold text-center mb-3 text-gray-600">REFERENSI</p>
-            <div className="h-100 bg-light-blue rounded-2xl flex items-center justify-center overflow-hidden relative">
+            <p className="text-xs font-bold tracking-wider text-center mb-3 text-gray-400 uppercase">Gambar Panduan</p>
+            <div className="h-96 bg-gray-50 border border-gray-100 rounded-2xl flex items-center justify-center overflow-hidden relative shadow-inner">
               {currentRefUrl ? (
                 <>
                   <img
                     src={currentRefUrl}
                     alt={refKeys[refImageIndex] || exercise?.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-2"
                   />
                   {refKeys.length > 1 && (
-                    <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
+                    <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 bg-black/5 py-1 backdrop-blur-xs">
                       {refKeys.map((k, i) => (
                         <button
                           key={k}
                           onClick={() => setRefImageIndex(i)}
-                          className={`w-6 h-6 rounded-full text-xs font-bold transition-all ${
+                          className={`min-w-[40px] h-7 rounded px-2 text-xs font-bold transition-all cursor-pointer ${
                             i === refImageIndex
-                              ? 'bg-primary-blue text-white'
-                              : 'bg-white text-gray-600 border border-gray-300 hover:bg-light-blue'
+                              ? 'bg-primary-blue text-white shadow-sm'
+                              : 'bg-white/90 text-gray-600 hover:bg-white border border-gray-200'
                           }`}
                         >
                           {k}
@@ -380,54 +386,54 @@ const LatihanPage = () => {
                   )}
                 </>
               ) : (
-                <div className="w-12 h-12 bg-gray-800 rounded-md flex items-center justify-center text-white">
-                  <ImageIcon size={24} />
+                <div className="text-gray-400 flex flex-col items-center gap-2">
+                  <ImageIcon size={36} />
+                  <span className="text-xs">Tidak ada gambar panduan</span>
                 </div>
               )}
             </div>
           </div>
 
+          {/* SISI KANAN: VIDEO DETEKTOR */}
           <div>
-            <p className="text-sm font-semibold text-center mb-3 text-gray-600">
-              KAMERA ANDA
-            </p>
-
-            {/* BOX UTAMA */}
-            <div className="h-100 bg-light-blue rounded-2xl overflow-hidden relative">
-              {/* FORCE FULL HEIGHT */}
-              <div className="absolute inset-0 w-full h-full">
-                
-                {/* Membawa jalur modelPath hasil saringan useMemo */}
-                <YOLOv8DetectorONNX
-                  modelPath={modelPath}
-                  onDetection={handleDetection}
-                  isEnabled={!!exercise}
-                  confidenceThreshold={0.5}
-                  fps={5}
-                  className="w-full h-full"
-                />
-
-              </div>
+            <p className="text-xs font-bold tracking-wider text-center mb-3 text-gray-400 uppercase">Kamera Pemindai</p>
+            <div className="h-96 bg-gray-900 rounded-2xl overflow-hidden relative shadow-md border border-gray-800">
+              <YOLOv8DetectorONNX
+                modelPath={modelPath}
+                onDetection={handleDetection}
+                isEnabled={isScanning && !!exercise}
+                confidenceThreshold={0.4}
+                fps={6}
+                className="w-full h-full"
+              />
             </div>
           </div>
         </div>
 
-        {/* ACTION */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
+        {/* TOMBOL AKSI */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+          {!isScanning && (
+            <button
+              onClick={handleRetry}
+              className="w-full sm:w-auto bg-gray-100 text-gray-700 px-8 py-3.5 rounded-full text-sm font-bold hover:bg-gray-200 active:scale-95 transition-all cursor-pointer"
+            >
+              Coba Pindai Ulang
+            </button>
+          )}
           <button
             onClick={handleNext}
             disabled={isProcessing}
-            className="bg-primary-blue text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto bg-primary-blue text-white px-10 py-3.5 rounded-full text-sm font-bold hover:bg-primary-hover active:scale-95 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Selanjutnya
+            {isProcessing ? 'Menyimpan Hasil...' : 'Lanjut'}
           </button>
         </div>
 
-        {/* TIPS */}
-        <div className="flex items-start gap-2 text-sm text-gray-500 max-w-xl mx-auto">
-          <Lightbulb size={18} className="text-secondary shrink-0 mt-0.5" />
-          <p>
-            Tips: Pastikan pencahayaan cukup dan latar belakang tidak terlalu ramai agar deteksi lebih akurat.
+        {/* FOOTER TIPS */}
+        <div className="flex items-start gap-2.5 text-xs text-gray-400 max-w-lg mx-auto bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <Lightbulb size={16} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="leading-normal">
+            <strong>Tips Akurasi:</strong> Pastikan telapak tangan menghadap penuh ke arah lensa kamera, tidak terlalu jauh, serta hindari bayangan objek lain di latar belakang.
           </p>
         </div>
       </Container>

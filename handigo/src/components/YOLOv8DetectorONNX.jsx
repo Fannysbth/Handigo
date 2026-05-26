@@ -1,326 +1,180 @@
-import { useEffect, useRef, useState } from 'react';
-import WebcamCapture from './WebcamCapture';
-import { loadONNXModel, postprocessOutput } from '@/lib/onnxInference';
-import { AlertCircle, Loader } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { loadModel, runInference } from '../lib/onnxInference';
 
-export default function YOLOv8DetectorONNX({
+// PENTING: Sudah disesuaikan dengan isi names dari hasil training model kamu
+const DEFAULT_LABELS = {
+  alfabet: [
+    'A','B','C','D','E','F','G','H','I','J','K','L','M',
+    'N','O','P','Q','R','S','T','U','V','W','X','Y','Z'
+  ],
+  angka: [
+    'Delapan','Dua','Empat','Enam','Lima',
+    'Satu','Sembilan','Tiga','Tujuh'
+  ],
+  kosakata: [
+    'Bodoh','Cinta','Jahat','Kamu','Kasih',
+    'Maaf','Makan','Masuk','Minum','Nama',
+    'Rumah','Saya','Terima','Tidur','Tolong'
+  ]
+};
+
+const YOLOv8DetectorONNX = ({
   modelPath,
   onDetection,
   isEnabled = true,
   confidenceThreshold = 0.5,
-  fps = 10,
-}) {
+  fps = 5,
+  className = ""
+}) => {
+  const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const overlayCanvasRef = useRef(null);
-  const containerRef = useRef(null);
+  const sessionRef = useRef(null);
+  
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelError, setModelError] = useState(null);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Deteksi list label berdasarkan nama file model yang aktif
+  const labels = React.useMemo(() => {
+    if (modelPath.includes('numbers')) return DEFAULT_LABELS.angka;
+    if (modelPath.includes('words')) return DEFAULT_LABELS.kosakata;
+    return DEFAULT_LABELS.alfabet;
+  }, [modelPath]);
 
-  const [detectionStats, setDetectionStats] = useState({
-    fps: 0,
-    detections: 0,
-  });
-
-  const modelRef = useRef(null);
-
-  const frameCountRef = useRef(0);
-  const lastFpsUpdateRef = useRef(Date.now());
-
-  // =========================
-  // AUTO LOAD MODEL
-  // =========================
+  // Effect 1: Memuat Model ONNX
   useEffect(() => {
-    let mounted = true;
-
+    let active = true;
     const initModel = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
-        console.log('Loading model:', modelPath);
-
-        const model = await loadONNXModel(modelPath);
-
-        if (!mounted) return;
-
-        console.log('MODEL READY');
-        console.log('Input Names:', model.inputNames);
-        console.log('Output Names:', model.outputNames);
-
-        modelRef.current = model;
-
-        setLoading(false);
+        setModelLoading(true);
+        setModelError(null);
+        sessionRef.current = null;
+        
+        const session = await loadModel(modelPath);
+        if (active) {
+          sessionRef.current = session;
+        }
       } catch (err) {
         console.error(err);
-
-        if (!mounted) return;
-
-        setError(err.message || 'Failed loading model');
-        setLoading(false);
+        if (active) setModelError('Gagal menginisialisasi model AI.');
+      } finally {
+        if (active) setModelLoading(false);
       }
     };
 
     initModel();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { active = false; };
   }, [modelPath]);
 
-  // =========================
-  // SYNC OVERLAY SIZE
-  // =========================
+  // Effect 2: Mengaktifkan Kamera Web
   useEffect(() => {
-    const overlay = overlayCanvasRef.current;
-    const container = containerRef.current;
+    let stream = null;
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: 640, height: 480 }
+      })
+      .then((s) => {
+        stream = s;
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+        }
+      })
+      .catch((err) => console.error("Akses kamera ditolak:", err));
+    }
 
-    if (!overlay || !container) return;
-
-    const syncSize = () => {
-      overlay.width = container.offsetWidth;
-      overlay.height = container.offsetHeight;
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     };
-
-    const observer = new ResizeObserver(syncSize);
-
-    observer.observe(container);
-
-    syncSize();
-
-    return () => observer.disconnect();
   }, []);
 
-  // =========================
-  // HANDLE FRAME
-  // =========================
-  const handleFrame = async (canvas) => {
-    if (!isEnabled) return;
+  // Effect 3: Loop Inference Terjadwal
+  useEffect(() => {
+    if (!isEnabled || modelLoading || !sessionRef.current) return;
 
-    if (!modelRef.current) {
-      console.log('Model belum ready');
-      return;
-    }
+    let intervalId = null;
 
-    if (!canvas) {
-      console.log('Canvas belum ready');
-      return;
-    }
+    const performDetection = async () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < 2) return;
 
-    try {
-      frameCountRef.current++;
-
-      const ctx = canvas.getContext('2d');
-
-      // Resize image to 640x640
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 640;
-      tempCanvas.height = 640;
-
-      const tempCtx = tempCanvas.getContext('2d');
-
-      tempCtx.drawImage(canvas, 0, 0, 640, 640);
-
-      const imageData = tempCtx.getImageData(0, 0, 640, 640);
-
-      // =========================
-      // CREATE INPUT TENSOR
-      // =========================
-      const input = new Float32Array(3 * 640 * 640);
-
-      for (let i = 0; i < 640 * 640; i++) {
-        input[i] = imageData.data[i * 4] / 255.0;
-        input[640 * 640 + i] = imageData.data[i * 4 + 1] / 255.0;
-        input[2 * 640 * 640 + i] = imageData.data[i * 4 + 2] / 255.0;
-      }
-
-      const ort = await import('onnxruntime-web');
-
-      const inputName = modelRef.current.inputNames[0];
-
-      // =========================
-      // RUN MODEL
-      // =========================
-      const results = await modelRef.current.run({
-        [inputName]: new ort.Tensor(
-          'float32',
-          input,
-          [1, 3, 640, 640]
-        ),
-      });
-
-      console.log('RESULTS:', results);
-
-      const outputName = modelRef.current.outputNames[0];
-
-      const output = results[outputName];
-
-      console.log('OUTPUT DIMS:', output.dims);
-
-      // =========================
-      // POST PROCESS
-      // =========================
-      const detections = postprocessOutput(
-        output,
-        canvas.width,
-        canvas.height,
-        confidenceThreshold
-      );
-
-      console.log('DETECTIONS:', detections);
-
-      // =========================
-      // FPS
-      // =========================
-      const now = Date.now();
-
-      const elapsed = (now - lastFpsUpdateRef.current) / 1000;
-
-      let currentFps = detectionStats.fps;
-
-      if (elapsed >= 1) {
-        currentFps = Math.round(
-          frameCountRef.current / elapsed
-        );
-
-        frameCountRef.current = 0;
-        lastFpsUpdateRef.current = now;
-      }
-
-      setDetectionStats({
-        fps: currentFps,
-        detections: detections.length,
-      });
-
-      // =========================
-      // DRAW DETECTIONS
-      // =========================
-      const overlayCanvas = overlayCanvasRef.current;
-
-      if (overlayCanvas) {
-        const overlayCtx = overlayCanvas.getContext('2d');
-
-        const ow = overlayCanvas.width;
-        const oh = overlayCanvas.height;
-
-        overlayCtx.clearRect(0, 0, ow, oh);
-
-        detections.forEach((det) => {
-          const x = (det.x / canvas.width) * ow;
-          const y = (det.y / canvas.height) * oh;
-          const w = (det.width / canvas.width) * ow;
-          const h = (det.height / canvas.height) * oh;
-
-          // BOX
-          overlayCtx.strokeStyle = '#00FF88';
-          overlayCtx.lineWidth = 3;
-
-          overlayCtx.strokeRect(x, y, w, h);
-
-          // LABEL BG
-          const label = `${det.className} ${(
-            det.confidence * 100
-          ).toFixed(1)}%`;
-
-          overlayCtx.font = 'bold 14px Arial';
-
-          const textWidth =
-            overlayCtx.measureText(label).width;
-
-          overlayCtx.fillStyle = '#00FF88';
-
-          overlayCtx.fillRect(
-            x,
-            y - 28,
-            textWidth + 12,
-            28
-          );
-
-          // TEXT
-          overlayCtx.fillStyle = '#000';
-
-          overlayCtx.fillText(
-            label,
-            x + 6,
-            y - 9
-          );
-        });
-      }
-
-      // =========================
-      // CALLBACK
-      // =========================
-      if (onDetection) {
-        onDetection({
-          detections,
-          fps: currentFps,
-          timestamp: Date.now(),
-        });
-      }
-    } catch (err) {
-      console.error('Detection error:', err);
-    }
-  };
-
-  // =========================
-  // LOADING UI
-  // =========================
-  if (loading) {
-    return (
-      <div className="w-full h-64 bg-gray-100 rounded-2xl flex items-center justify-center">
-        <div className="flex items-center gap-2 text-gray-600">
-          <Loader size={20} className="animate-spin" />
-          <span>Memuat model ONNX...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================
-  // ERROR UI
-  // =========================
-  if (error) {
-    return (
-      <div className="w-full h-64 bg-red-50 rounded-2xl flex items-center justify-center">
-        <div className="flex items-start gap-2 text-red-600">
-          <AlertCircle size={20} className="mt-0.5" />
-
-          <div>
-            <p className="font-semibold">
-              Model Error
-            </p>
-
-            <p className="text-sm">{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================
-  // MAIN UI
-  // =========================
-  return (
-    <div className="w-full">
-      <div
-        ref={containerRef}
-        className="relative"
-      >
-        <WebcamCapture
-          isEnabled={isEnabled}
-          onFrame={handleFrame}
-          canvasRef={canvasRef}
-          showDashedBorder={true}
-          fps={fps}
-        />
-
-        <canvas
-          ref={overlayCanvasRef}
-          className="absolute inset-0 w-full h-full rounded-2xl pointer-events-none"
-        />
-      </div>
-
+      const detections = await runInference(sessionRef.current, video, confidenceThreshold, labels);
       
+      // Kirim hasil ke komponen utama (LatihanPage)
+      onDetection({ detections });
+
+      // Gambar kotak visualisasi secara lokal di canvas
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      detections.forEach(({ box, className, confidence }) => {
+        const scaleX = canvas.width / 640;
+        const scaleY = canvas.height / 640;
+
+        const [x, y, w, h] = box;
+        const rx = x * scaleX;
+        const ry = y * scaleY;
+        const rw = w * scaleX;
+        const rh = h * scaleY;
+
+        // Bounding Box
+        ctx.strokeStyle = '#00E5FF';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(rx, ry, rw, rh);
+
+        // Label Background
+        ctx.fillStyle = '#00E5FF';
+        const text = `${className} (${Math.round(confidence * 100)}%)`;
+        ctx.font = 'bold 14px sans-serif';
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillRect(rx, ry - 24, textWidth + 10, 24);
+
+        // Teks Label
+        ctx.fillStyle = '#000000';
+        ctx.fillText(text, rx + 5, ry - 7);
+      });
+    };
+
+    intervalId = setInterval(performDetection, 1000 / fps);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isEnabled, modelLoading, confidenceThreshold, fps, labels, onDetection]);
+
+  return (
+    <div className={`relative ${className}`}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="absolute inset-0 w-full h-full object-cover "
+        onLoadedMetadata={() => {
+          if (canvasRef.current && videoRef.current) {
+            canvasRef.current.width = videoRef.current.videoWidth;
+            canvasRef.current.height = videoRef.current.videoHeight;
+          }
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full object-cover "
+      />
+      
+      {modelLoading && (
+        <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-center text-white text-sm font-semibold tracking-wide">
+          ⏳ Mengunduh & Memuat Model AI ke Browser...
+        </div>
+      )}
+      {modelError && (
+        <div className="absolute inset-0 bg-red-600/80 flex items-center justify-center p-4 text-center text-white text-sm font-semibold">
+          ❌ {modelError}
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default React.memo(YOLOv8DetectorONNX);
