@@ -24,12 +24,13 @@ const LoginPage = () => {
 
   if (!idToken) return;
 
-  // BERSIHKAN URL dengan cara React Router agar sinkron di Vercel
-  navigate(window.location.pathname, { replace: true });
+  // bersihkan URL
+  window.history.replaceState(null, null, window.location.pathname);
 
   const handleGoogle = async () => {
     try {
       const result = await googleLogin(idToken);
+
       console.log("Hasil backend:", result);
 
       if (result?.needProfile) {
